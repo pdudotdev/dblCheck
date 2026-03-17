@@ -17,10 +17,12 @@ Port: DASHBOARD_PORT env var (default 5556)
 
 import asyncio
 import collections
+import hmac
 import json
 import logging
 import os
 import sys
+import urllib.parse
 from pathlib import Path
 
 from websockets.asyncio.server import serve, broadcast as ws_broadcast
@@ -42,6 +44,15 @@ except ValueError:
         f"DASHBOARD_PORT must be an integer, got: {os.getenv('DASHBOARD_PORT')!r}"
     )
 HOST = os.getenv("DASHBOARD_HOST", "127.0.0.1")
+
+# ── Optional token auth ───────────────────────────────────────────────────────
+# If configured, all HTTP and WebSocket connections must supply ?token=<value>.
+# Stored in Vault at dblcheck/dashboard key "token", or DASHBOARD_TOKEN env var.
+sys.path.insert(0, str(PROJECT_DIR))
+from core.vault import get_secret as _get_secret
+_DASHBOARD_TOKEN: str = _get_secret("dblcheck/dashboard", "token",
+                                     fallback_env="DASHBOARD_TOKEN", quiet=True) or ""
+
 BUFFER_SIZE       = 200
 TAIL_POLL_INTERVAL = 0.1   # seconds
 RUN_HISTORY_MAX   = 20
@@ -334,12 +345,27 @@ def _get_run_history() -> list[dict]:
     return history
 
 
+def _token_from_path(path: str) -> str | None:
+    """Extract the 'token' query parameter from a URL path."""
+    return urllib.parse.parse_qs(
+        urllib.parse.urlparse(path).query
+    ).get("token", [None])[0]
+
+
 def _http_handler(connection, request):
     """Serve HTTP requests; pass WebSocket upgrade requests through."""
     if request.headers.get("Upgrade", "").lower() == "websocket":
-        return None
+        return None  # token auth happens in ws_handler
 
-    if request.path in ("/", "/index.html"):
+    if _DASHBOARD_TOKEN:
+        if not hmac.compare_digest(_token_from_path(request.path) or "", _DASHBOARD_TOKEN):
+            headers = Headers({"Content-Type": "text/plain"})
+            return Response(401, "Unauthorized", headers, b"Unauthorized")
+
+    # Strip token from path for routing (e.g. /?token=xxx → /)
+    clean_path = urllib.parse.urlparse(request.path).path
+
+    if clean_path in ("/", "/index.html"):
         try:
             body = INDEX_HTML.read_bytes()
             headers = Headers({"Content-Type": "text/html; charset=utf-8"})
@@ -348,8 +374,8 @@ def _http_handler(connection, request):
             headers = Headers({"Content-Type": "text/plain"})
             return Response(404, "Not Found", headers, b"Dashboard not found")
 
-    if request.path.startswith("/api/run/"):
-        run_name = request.path[len("/api/run/"):]
+    if clean_path.startswith("/api/run/"):
+        run_name = clean_path[len("/api/run/"):]
         run_file = RUNS_DIR / f"{run_name}.json"
         # Guard against path traversal (e.g. /api/run/../../etc/passwd)
         try:
@@ -367,7 +393,7 @@ def _http_handler(connection, request):
             headers = Headers({"Content-Type": "text/plain"})
             return Response(404, "Not Found", headers, b"Run not found")
 
-    if request.path == "/favicon.ico":
+    if clean_path == "/favicon.ico":
         return Response(204, "No Content", Headers({}), b"")
 
     headers = Headers({"Content-Type": "text/plain"})
@@ -377,6 +403,12 @@ def _http_handler(connection, request):
 # ── WebSocket handler ─────────────────────────────────────────────────────────
 
 async def ws_handler(websocket) -> None:
+    if _DASHBOARD_TOKEN:
+        client_token = _token_from_path(websocket.request.path)
+        if not hmac.compare_digest(client_token or "", _DASHBOARD_TOKEN):
+            await websocket.close(4001, "Unauthorized")
+            return
+
     remote = websocket.remote_address
     log.info("WebSocket client connected: %s", remote)
     CLIENTS.add(websocket)

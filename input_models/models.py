@@ -11,7 +11,6 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 
 # Compiled patterns for parameter validation
 _VRF_RE    = re.compile(r'^[a-zA-Z0-9_-]{1,32}$')
-_SOURCE_RE = re.compile(r'^[a-zA-Z0-9][a-zA-Z0-9/:.-]{0,49}$')   # IP or interface name
 _PREFIX_RE = re.compile(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(/\d{1,2})?$')
 
 
@@ -150,14 +149,19 @@ class ShowCommand(BaseParamsModel):
                 f"run_show only accepts read-only 'show' commands. Got: {stripped!r}"
             )
 
-        # Blocklist sensitive show categories that expose credentials/keys/config
-        _BLOCKED = {"running-config", "startup-config", "tech-support",
-                    "aaa", "crypto", "snmp", "secret"}
+        # Blocklist sensitive show categories that expose credentials/keys/config.
+        # Also catches IOS abbreviations (e.g. "show run" → "show running-config"):
+        # if any blocked word starts with the user's token, treat it as blocked.
+        # Minimum 3 chars for prefix matching to avoid false positives on short tokens.
+        _BLOCKED = frozenset({"running-config", "startup-config", "tech-support",
+                              "aaa", "crypto", "snmp", "secret"})
         tokens = stripped.lower().split()
-        if len(tokens) >= 2 and tokens[1] in _BLOCKED:
-            raise ValueError(
-                f"run_show: 'show {tokens[1]}' is not permitted (sensitive data)"
-            )
+        if len(tokens) >= 2:
+            cmd = tokens[1]
+            if any(cmd == b or (len(cmd) >= 3 and b.startswith(cmd)) for b in _BLOCKED):
+                raise ValueError(
+                    f"run_show: 'show {cmd}' is not permitted (sensitive data)"
+                )
 
         return v
 

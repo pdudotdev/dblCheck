@@ -8,7 +8,7 @@
 |---|---|
 | **Platforms** | ![Cisco IOS](https://img.shields.io/badge/Cisco_IOS-0d47a1) ![Cisco IOS-XE](https://img.shields.io/badge/Cisco_IOS--XE-0d47a1) |
 | **Transport** | ![SSH](https://img.shields.io/badge/SSH-1565c0) |
-| **Integrations** | ![NetBox](https://img.shields.io/badge/NetBox-1976d2) ![HashiCorp Vault](https://img.shields.io/badge/HashiCorp_Vault-1976d2) |
+| **Integrations** | ![NetBox](https://img.shields.io/badge/NetBox-1976d2) ![HashiCorp Vault](https://img.shields.io/badge/HashiCorp_Vault-1976d2) ![Jira](https://img.shields.io/badge/Jira-1976d2) |
 
 ## 📖 **Table of Contents**
 - 📜 **dblCheck**
@@ -80,6 +80,8 @@ dbl/bin/pip install -r requirements.txt
 ```
 vault kv put secret/dblcheck/router username=<user> password=<pass>
 vault kv put secret/dblcheck/netbox token=<token>
+vault kv put secret/dblcheck/jira token=<token>
+vault kv put secret/dblcheck/dashboard token=<token>
 # vault kv put secret/dblcheck/anthropic api_key=<key>
 ```
 

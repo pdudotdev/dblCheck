@@ -18,6 +18,7 @@ Exit codes:
 import argparse
 import asyncio
 import fcntl
+import hashlib
 import json
 import os
 import shutil
@@ -113,6 +114,83 @@ def _cleanup_old_files() -> None:
         files = sorted(directory.iterdir(), key=lambda p: p.stat().st_mtime)
         for old in files[:-MAX_RETAINED]:
             old.unlink(missing_ok=True)
+
+
+INCIDENT_FILE = DATA_DIR / "incident.json"
+
+
+def _failure_fingerprint(failures: list) -> str:
+    """Stable hash of a failure set — used to detect when failures change between runs."""
+    items = sorted(
+        (r.assertion.device, r.assertion.type.value,
+         str(r.assertion.expected), str(r.actual))
+        for r in failures
+    )
+    return hashlib.sha256(str(items).encode()).hexdigest()
+
+
+def _extract_diagnosis_text(session_path: Path) -> str:
+    """Extract the agent's diagnosis text from a completed session NDJSON file."""
+    parts = []
+    try:
+        for line in session_path.read_text().splitlines():
+            try:
+                event = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if event.get("type") != "stream_event":
+                continue
+            inner = event.get("event", {})
+            if inner.get("type") == "content_block_delta":
+                delta = inner.get("delta", {})
+                if delta.get("type") == "text_delta":
+                    parts.append(delta.get("text", ""))
+    except OSError:
+        pass
+    text = "".join(parts).strip()
+    # Strip agent narration before the first finding heading (but not if already clean)
+    if not text.startswith("## "):
+        heading_pos = text.find("\n## ")
+        if heading_pos != -1:
+            text = text[heading_pos + 1:]
+    return text
+
+
+async def _handle_incident(failures: list, fingerprint: str,
+                            diagnosis_text: str) -> None:
+    """Create or update the Jira incident ticket for the current failure set."""
+    from core import jira_client
+
+    prev = {}
+    if INCIDENT_FILE.exists():
+        try:
+            prev = json.loads(INCIDENT_FILE.read_text())
+        except (OSError, json.JSONDecodeError):
+            pass
+
+    device_list = ", ".join(sorted({r.assertion.device for r in failures}))
+    summary = f"dblCheck: {len(failures)} assertion failure{'s' if len(failures) != 1 else ''} — {device_list}"
+
+    existing_key = prev.get("jira_issue_key")
+
+    if not existing_key:
+        issue_key = await jira_client.create_issue(summary=summary, description=diagnosis_text)
+        if not issue_key and jira_client._is_configured():
+            log.error("Jira ticket creation failed — will retry on next run")
+            return
+    else:
+        comment = f"Failure set changed ({len(failures)} failure{'s' if len(failures) != 1 else ''}). Updated diagnosis:\n\n{diagnosis_text}"
+        await jira_client.add_comment(existing_key, comment)
+        issue_key = existing_key
+
+    incident = {
+        "fingerprint":    fingerprint,
+        "jira_issue_key": issue_key,
+        "diagnosed_at":   datetime.now(timezone.utc).isoformat(),
+    }
+    tmp = INCIDENT_FILE.with_suffix(".json.tmp")
+    tmp.write_text(json.dumps(incident, indent=2))
+    tmp.rename(INCIDENT_FILE)
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -248,19 +326,54 @@ async def _run(args) -> int:
                 print(format_text(results, duration, color=_USE_COLOR))
 
         failures = [r for r in results if r.result != AssertionResult.PASS]
+
+        # ── Fingerprint — skip diagnosis when failure set is unchanged ─────────
+        prev_incident: dict = {}
+        if INCIDENT_FILE.exists():
+            try:
+                prev_incident = json.loads(INCIDENT_FILE.read_text())
+            except (OSError, json.JSONDecodeError):
+                pass
+
         if failures and not args.no_diagnose:
-            session_name = f"session-{ts}"
-            session_file = SESSIONS_DIR / f"{session_name}.ndjson"
-            _write_state({
-                "state": "diagnosing",
-                "run_name": run_name,
-                "run_file": str(run_file),
-                "session_file": str(session_file),
-                "started_at": datetime.now(timezone.utc).isoformat(),
-                "summary": run_dict["summary"],
-            })
-            await asyncio.to_thread(_diagnose, failures, session_file,
-                                     headless=args.headless)
+            fingerprint = _failure_fingerprint(failures)
+            from core import jira_client as _jc
+            fingerprint_match = fingerprint == prev_incident.get("fingerprint")
+            jira_pending = (not prev_incident.get("jira_issue_key")
+                            and _jc._is_configured())
+
+            if fingerprint_match and not jira_pending:
+                log.info("Failures unchanged (fingerprint match) — skipping diagnosis")
+                if not args.headless:
+                    print(_c("2", "  Failures unchanged since last run — diagnosis skipped."))
+            else:
+                session_name = f"session-{ts}"
+                session_file = SESSIONS_DIR / f"{session_name}.ndjson"
+                _write_state({
+                    "state": "diagnosing",
+                    "run_name": run_name,
+                    "run_file": str(run_file),
+                    "session_file": str(session_file),
+                    "started_at": datetime.now(timezone.utc).isoformat(),
+                    "summary": run_dict["summary"],
+                })
+                await asyncio.to_thread(_diagnose, failures, session_file,
+                                         headless=args.headless)
+                diagnosis_text = _extract_diagnosis_text(session_file)
+                if diagnosis_text:
+                    await _handle_incident(failures, fingerprint, diagnosis_text)
+                else:
+                    log.warning("Diagnosis produced no text — skipping incident handling")
+
+        elif not failures and prev_incident.get("jira_issue_key"):
+            # All assertions pass — comment on the open ticket and clear incident state
+            from core import jira_client
+            ts_now = datetime.now(timezone.utc).isoformat()
+            await jira_client.add_comment(
+                prev_incident["jira_issue_key"],
+                f"All dblCheck assertions now pass. Failures resolved at {ts_now}.",
+            )
+            INCIDENT_FILE.unlink(missing_ok=True)
 
         _write_state({
             "state": "idle",
@@ -350,8 +463,8 @@ def _diagnose(failures: list, session_path: Path, headless: bool = False) -> Non
         "For each one, explain the root cause and the evidence that supports it. "
         "Do not suggest configuration changes.\n\n"
         f"{output_instructions}\n\n"
-        "Do not narrate your process — no 'Let me check' or 'I have the evidence'. "
-        "Jump straight to findings."
+        "Do not output any text before your findings — no planning, no narration, no preamble. "
+        "Your first text output must be a finding, not a description of what you are about to do."
     )
 
     if not headless:
