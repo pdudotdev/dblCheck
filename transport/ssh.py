@@ -3,6 +3,7 @@ import asyncio
 import logging
 
 from scrapli import AsyncScrapli
+from scrapli.exceptions import ScrapliAuthenticationFailed
 from core.settings import (
     USERNAME, PASSWORD, SSH_STRICT_KEY,
     SSH_TIMEOUT_TRANSPORT, SSH_TIMEOUT_OPS,
@@ -44,11 +45,15 @@ async def execute_ssh(device: dict, command: str, timeout_ops: int | None = None
                 if device.get("cli_style") == "ios":
                     try:
                         parsed_output = response.genie_parse_output()
-                    except Exception:
+                    except Exception as ge:
                         # Genie lacks a parser for this command or the output format is unexpected.
                         # Fall back to raw text — the caller handles None parsed_output gracefully.
+                        log.debug("Genie parse skipped for %r on %s: %s",
+                                  command, device["host"], ge)
                         parsed_output = None
             return raw_output, parsed_output
+        except ScrapliAuthenticationFailed:
+            raise  # Auth failures are not transient — don't retry
         except Exception as e:
             last_exc = e
             if attempt < SSH_RETRIES:

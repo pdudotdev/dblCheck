@@ -8,6 +8,12 @@ Read-only tools only. No push_config, no approval workflow, no Jira.
   tools/       — MCP tool handler functions
   core/        — inventory, settings, logging
 """
+import sys
+from pathlib import Path
+
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(_PROJECT_ROOT))
+
 import logging
 from fastmcp import FastMCP
 
@@ -18,7 +24,7 @@ log = logging.getLogger("dblcheck")
 
 from tools.protocol    import get_ospf, get_bgp
 from tools.routing     import get_routing, get_routing_policies
-from tools.operational import get_interfaces, ping, traceroute, run_show
+from tools.operational import get_interfaces, run_show
 from tools.state       import get_intent
 
 
@@ -29,12 +35,10 @@ mcp.tool(name="get_bgp")(get_bgp)
 mcp.tool(name="get_routing")(get_routing)
 mcp.tool(name="get_routing_policies")(get_routing_policies)
 mcp.tool(name="get_interfaces")(get_interfaces)
-mcp.tool(name="ping")(ping)
-mcp.tool(name="traceroute")(traceroute)
 mcp.tool(name="run_show")(run_show)
 mcp.tool(name="get_intent")(get_intent)
 
-log.info("dblCheck MCP Server started — 9 read-only tools registered")
+log.info("dblCheck MCP Server started — 7 read-only tools registered")
 
 if __name__ == "__main__":
     mcp.run()

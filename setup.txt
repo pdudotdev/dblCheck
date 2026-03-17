@@ -1,0 +1,162 @@
+dblCheck — Setup Guide
+======================
+
+PREREQUISITES
+-------------
+- Python 3.11 or newer
+- HashiCorp Vault (KV v2 engine enabled)
+- Git
+
+Optional (for AI-assisted root-cause diagnosis of failures):
+- Claude CLI  (npm install -g @anthropic-ai/claude-code)
+  Without it, validation and the dashboard work normally — only the automated
+  root-cause investigation step is skipped.
+
+
+1. INSTALL
+----------
+Clone the repo and create the Python virtualenv:
+
+    git clone <repo-url> /opt/dblcheck
+    cd /opt/dblcheck
+    python3 -m venv dbl
+    dbl/bin/pip install -r requirements.txt
+
+
+2. VAULT SETUP
+--------------
+dblCheck reads all secrets from Vault. Store them at these KV v2 paths.
+
+Router credentials (SSH / RESTCONF device access):
+
+    vault kv put secret/dblcheck/router \
+        username=<your-router-username> \
+        password=<your-router-password>
+
+NetBox API token:
+
+    vault kv put secret/dblcheck/netbox \
+        token=<your-netbox-token>
+
+Anthropic API key (for AI diagnosis):
+
+    vault kv put secret/dblcheck/anthropic \
+        api_key=<your-anthropic-api-key>
+
+To verify:
+
+    vault kv get secret/dblcheck/router
+    vault kv get secret/dblcheck/netbox
+    vault kv get secret/dblcheck/anthropic
+
+
+3. CONFIGURE .env
+-----------------
+Copy the example and set your Vault connection details:
+
+    cp .env.example .env
+
+Edit .env and set:
+
+    VAULT_ADDR=https://your-vault:8200
+    VAULT_TOKEN=hvs.your-token
+
+If you use NetBox for device inventory, also uncomment and set:
+
+    NETBOX_URL=http://your-netbox:8000
+
+
+4. CLAUDE AUTH (OPTIONAL — AI DIAGNOSIS ONLY)
+----------------------------------------------
+Skip this step if you are not using the AI diagnosis feature.
+
+Install the Claude CLI:
+
+    npm install -g @anthropic-ai/claude-code
+
+Option A: Anthropic account (recommended)
+
+    claude login
+
+    Credentials are stored in ~/.claude/ and used automatically.
+    No API key needed.
+
+Option B: API key via Vault
+
+    Already covered in step 2 — store it at dblcheck/anthropic.
+    dblCheck injects it automatically when invoking the claude subprocess.
+
+
+5. RUN MANUALLY
+---------------
+Validate the network right now (interactive, with terminal output):
+
+    dbl/bin/python cli/dblcheck.py
+
+Limit to a single device:
+
+    dbl/bin/python cli/dblcheck.py --device C1C
+
+Skip AI diagnosis:
+
+    dbl/bin/python cli/dblcheck.py --no-diagnose
+
+JSON output (for CI/CD):
+
+    dbl/bin/python cli/dblcheck.py --format json
+
+
+6. RUN AS A DAEMON (SYSTEMD)
+-----------------------------
+Install the systemd service (detects your install path and user automatically):
+
+    sudo deploy/install.sh
+
+Check status:
+
+    sudo systemctl status dblcheck
+    sudo journalctl -u dblcheck -f
+
+Stop / restart:
+
+    sudo systemctl stop dblcheck
+    sudo systemctl restart dblcheck
+
+The daemon validates the network every 300 seconds (configurable via INTERVAL
+in .env) and serves the dashboard on port 5556.
+
+
+7. MCP SERVER (CLAUDE CODE INTEGRATION)
+-----------------------------------------
+Optional — only needed for interactive Claude Code sessions where you want
+to manually query devices through Claude. dblCheck validation and AI diagnosis
+work without it.
+
+Register:
+
+    claude mcp add dblcheck -s user -- ./dbl/bin/python server/MCPServer.py
+
+Start manually for testing:
+
+    dbl/bin/python server/MCPServer.py
+
+
+8. DASHBOARD
+------------
+Open in a browser:
+
+    http://localhost:5556
+
+The dashboard shows live validation results and streams AI diagnosis output
+when failures are found.
+
+To change the port, set DASHBOARD_PORT=<port> in .env and restart the daemon.
+
+
+TOPOLOGY CUSTOMIZATION
+-----------------------
+Device inventory is loaded from NetBox. Set NETBOX_URL in .env and store
+the API token in Vault at dblcheck/netbox.
+
+Network intent is defined in intent/INTENT.json — assertions are derived
+automatically from the intent file on each validation run.

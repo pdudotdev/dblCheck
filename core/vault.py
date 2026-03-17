@@ -5,9 +5,11 @@ or if Vault is unreachable. This makes Vault fully optional — the system works
 it by reading secrets from .env as before.
 
 Vault paths used by dblCheck:
-  dblcheck/router   → username, password
-  dblcheck/jira     → api_token
-  dblcheck/discord  → bot_token
+  dblcheck/router     → username, password   (SSH/RESTCONF device credentials)
+  dblcheck/netbox     → token                (NetBox API token)
+  dblcheck/anthropic  → api_key              (Anthropic API key for AI diagnosis)
+  dblcheck/jira       → api_token            (reserved, future use)
+  dblcheck/discord    → bot_token            (reserved, future use)
 """
 import logging
 import os
@@ -21,7 +23,7 @@ _VAULT_FAILED = object()
 _cache: dict[str, object] = {}
 
 
-def get_secret(path: str, key: str, fallback_env: str = "") -> str | None:
+def get_secret(path: str, key: str, fallback_env: str = "", quiet: bool = False) -> str | None:
     """Read a secret from Vault KV v2, falling back to an env var if Vault is unavailable.
 
     Args:
@@ -45,7 +47,10 @@ def get_secret(path: str, key: str, fallback_env: str = "") -> str | None:
         if cached is _VAULT_FAILED:
             # Previous attempt failed — preserve env var fallback on every call
             return os.getenv(fallback_env) if fallback_env else None
-        return cached.get(key)
+        # Key missing from Vault secret — fall back to env var
+        if key not in cached:
+            return os.getenv(fallback_env) if fallback_env else None
+        return cached[key]
 
     try:
         import hvac
@@ -56,9 +61,12 @@ def get_secret(path: str, key: str, fallback_env: str = "") -> str | None:
         data: dict = response["data"]["data"]
         _cache[path] = data
         log.info("Vault: loaded secret path '%s'", path)
-        return data.get(key)
+        if key not in data:
+            return os.getenv(fallback_env) if fallback_env else None
+        return data[key]
     except Exception as exc:
-        log.warning(
+        log_fn = log.debug if quiet else log.warning
+        log_fn(
             "Vault unavailable (path=%s): %s — falling back to env var %s",
             path, exc, fallback_env or "(none)",
         )

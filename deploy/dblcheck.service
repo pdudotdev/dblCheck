@@ -1,0 +1,25 @@
+# systemd service unit for dblCheck
+#
+# Use the install script instead of copying this file manually:
+#
+#   sudo deploy/install.sh
+#
+# The script auto-detects your install path and user, generates the correct
+# service file, and enables the daemon — no manual editing required.
+
+[Unit]
+Description=dblCheck network validation daemon
+After=network.target
+
+[Service]
+Type=simple
+User=YOUR_USERNAME
+Group=YOUR_GROUP
+WorkingDirectory=/opt/dblcheck
+EnvironmentFile=/opt/dblcheck/.env
+ExecStart=/opt/dblcheck/dbl/bin/python deploy/dblcheck_daemon.py
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

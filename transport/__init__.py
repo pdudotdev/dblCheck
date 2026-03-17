@@ -4,7 +4,6 @@ Two branches (Cisco-only 2-tier stack):
   - asyncssh:  Scrapli SSH for IOL devices (A1C, A2C, IAN, IBN) + SSH fallback.
   - restconf:  2-tier ActionChain for c8000v devices (C1C, C2C, E1C, E2C, X1C).
                RESTCONF (primary) → SSH (fallback).
-               Plain CLI strings (ping/traceroute) → SSH directly.
 """
 import logging
 
@@ -82,19 +81,6 @@ async def execute_command(device_name: str, cmd_or_action,
                     log.warning("%s tier failed for %s: %s", tier, device_name,
                                 raw_output.get("error", "unknown"))
                 # raw_output/parsed_output hold last attempt (success or final error)
-            elif isinstance(cmd_or_action, dict) and "url" in cmd_or_action:
-                # Raw RESTCONF action dict (from run_show) — route directly to RESTCONF
-                raw_output = await execute_restconf(device, cmd_or_action)
-                parsed_output = None
-                transport_used = "restconf"
-                command_used = f"GET /restconf/data/{cmd_or_action['url']}"
-            else:
-                # Plain CLI string (tools: ping/traceroute) → SSH
-                raw_output, parsed_output = await execute_ssh(device, cmd_or_action,
-                                                              timeout_ops=timeout_ops)
-                transport_used = "ssh"
-                command_used = cmd_or_action
-
         else:
             log.error("unknown transport: %s for device %s", dev_transport, device_name)
             return {
@@ -105,6 +91,11 @@ async def execute_command(device_name: str, cmd_or_action,
     except Exception as e:
         log.error("command failed: %s — %s", device_name, e)
         return {"device": device_name, "cli_style": cli_style, "error": str(e)}
+
+    # Audit log: record every command executed on a device
+    log.debug("audit: device=%s transport=%s command=%s",
+             device_name, transport_used or dev_transport,
+             command_used if command_used else "(unknown)")
 
     # Log transport-level errors (returned as dicts, not exceptions)
     if isinstance(raw_output, dict) and "error" in raw_output:

@@ -1,5 +1,6 @@
 # dblCheck runtime dependencies
 fastmcp>=3.0,<4.0
+websockets>=16.0,<17.0
 scrapli[genie]>=2026.2,<2027.0
 scrapli-community>=2025.1,<2026.0
 asyncssh>=2.22,<3.0

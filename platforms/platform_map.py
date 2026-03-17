@@ -31,16 +31,11 @@ PLATFORM_MAP = {
         "interfaces": {
             "interface_status": "show ip interface brief"
         },
-        "tools": {
-            "ping":       {"default": "ping",        "vrf": "ping vrf {vrf}"},
-            "traceroute": {"default": "traceroute",  "vrf": "traceroute vrf {vrf}"},
-        },
     },
 
     # ── Cisco IOS-XE via RESTCONF (primary tier for c8000v) ───────────────────
     # Used by: C1C, C2C, E1C, E2C, X1C (restconf transport, primary ActionChain tier).
     # HTTP GET to /restconf/data/{url}. Returns all-VRF data; agent filters by VRF.
-    # ping/traceroute have no RESTCONF equivalent — tools section falls back to ios CLI.
     "ios_restconf": {
         "ospf": {
             "neighbors":  {"url": "Cisco-IOS-XE-ospf-oper:ospf-oper-data/ospf-state",      "method": "GET"},
@@ -110,9 +105,6 @@ def get_action(device: dict, category: str, query: str, vrf: str | None = None):
     two tiers — RESTCONF (primary) → SSH (fallback).
     The dispatcher tries each in order; first success wins.
 
-    Exception: ``tools`` (ping/traceroute) always returns a plain CLI string
-    since those have no RESTCONF equivalent.
-
     For ``asyncssh`` devices (IOL): returns a plain CLI string or dual-entry
     dict (resolved to a string via VRF logic).
 
@@ -131,11 +123,6 @@ def get_action(device: dict, category: str, query: str, vrf: str | None = None):
     vrf_name = vrf or device.get("vrf")
 
     if device["transport"] == "restconf":
-        # tools (ping/traceroute): no RESTCONF tier — return plain CLI string from ios
-        if category == "tools":
-            action = PLATFORM_MAP["ios"][category][query]
-            return _apply_vrf(action, vrf_name)
-
         rc_action  = PLATFORM_MAP["ios_restconf"][category][query]
         ssh_action = _apply_vrf(PLATFORM_MAP["ios"][category][query], vrf_name)
         return ActionChain([

@@ -122,71 +122,6 @@ class InterfacesQuery(BaseParamsModel):
         None, description="Force a specific transport tier (restconf/ssh). Default: auto (ActionChain fallback). Only applies to c8000v devices."
     )
 
-# Ping - input model
-class PingInput(BaseParamsModel):
-    device: str = Field(..., description="Device name from inventory")
-    destination: str = Field(..., description="IP address to ping")
-    source: str | None = Field(None, description="Optional source IP or interface name")
-    vrf: str | None = Field(None, description="Optional VRF name (default: global routing table)")
-
-    @field_validator('destination')
-    @classmethod
-    def _validate_destination(cls, v: str) -> str:
-        try:
-            ipaddress.ip_address(v)
-        except ValueError:
-            raise ValueError(f"destination must be a valid IP address, got: {v!r}")
-        return v
-
-    @field_validator('source')
-    @classmethod
-    def _validate_source(cls, v: str | None) -> str | None:
-        if v is None:
-            return v
-        # Accept valid IP address or interface name (e.g. Loopback0, GigabitEthernet1, Ethernet0/1)
-        try:
-            ipaddress.ip_address(v)
-            return v
-        except ValueError:
-            pass
-        if not _SOURCE_RE.match(v):
-            raise ValueError(
-                f"source must be a valid IP address or interface name, got: {v!r}"
-            )
-        return v
-
-# Traceroute - input model
-class TracerouteInput(BaseParamsModel):
-    device: str = Field(..., description="Device name from inventory")
-    destination: str = Field(..., description="IP address to trace")
-    source: str | None = Field(None, description="Optional source IP or interface name")
-    vrf: str | None = Field(None, description="Optional VRF name (default: global routing table)")
-
-    @field_validator('destination')
-    @classmethod
-    def _validate_destination(cls, v: str) -> str:
-        try:
-            ipaddress.ip_address(v)
-        except ValueError:
-            raise ValueError(f"destination must be a valid IP address, got: {v!r}")
-        return v
-
-    @field_validator('source')
-    @classmethod
-    def _validate_source(cls, v: str | None) -> str | None:
-        if v is None:
-            return v
-        try:
-            ipaddress.ip_address(v)
-            return v
-        except ValueError:
-            pass
-        if not _SOURCE_RE.match(v):
-            raise ValueError(
-                f"source must be a valid IP address or interface name, got: {v!r}"
-            )
-        return v
-
 # Show command - input model
 class ShowCommand(BaseParamsModel):
     """Run a show command against a network device."""
@@ -196,34 +131,34 @@ class ShowCommand(BaseParamsModel):
     @field_validator("command")
     @classmethod
     def must_be_read_only(cls, v: str) -> str:
-        """Enforce read-only commands across all supported transports.
+        """Enforce safe, read-only show commands (IOS SSH only).
 
-        Accepted forms:
-          - CLI string starting with 'show ' (IOS asyncssh / Scrapli SSH)
-          - RESTCONF JSON: {"url": "...", "method": "GET"}
+        Rules:
+          - Must start with 'show ' (case-insensitive)
+          - Must not contain control characters (\\r, \\n, \\x00)
+          - Second token must not be a sensitive command category
         """
         stripped = v.strip()
-        try:
-            parsed = json.loads(stripped)
-            if isinstance(parsed, dict):
-                # RESTCONF dict: url + GET method (read-only)
-                if "url" in parsed:
-                    if parsed.get("method", "GET").upper() != "GET":
-                        raise ValueError(
-                            f"run_show RESTCONF action must use method=GET. Got: {stripped[:80]!r}"
-                        )
-                    return v
-                raise ValueError(
-                    f"run_show JSON action must have 'url' key. Got: {stripped[:80]!r}"
-                )
-        except json.JSONDecodeError:
-            pass
+
+        # Reject control characters — prevent multi-command injection on device PTY
+        if any(c in stripped for c in '\r\n\x00'):
+            raise ValueError("run_show: command must not contain control characters")
 
         # CLI command: must start with "show " (case-insensitive)
         if not stripped.lower().startswith("show "):
             raise ValueError(
-                f"run_show only accepts read-only commands (must start with 'show '). Got: {stripped!r}"
+                f"run_show only accepts read-only 'show' commands. Got: {stripped!r}"
             )
+
+        # Blocklist sensitive show categories that expose credentials/keys/config
+        _BLOCKED = {"running-config", "startup-config", "tech-support",
+                    "aaa", "crypto", "snmp", "secret"}
+        tokens = stripped.lower().split()
+        if len(tokens) >= 2 and tokens[1] in _BLOCKED:
+            raise ValueError(
+                f"run_show: 'show {tokens[1]}' is not permitted (sensitive data)"
+            )
+
         return v
 
 # Empty placeholder - input model

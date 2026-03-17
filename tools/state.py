@@ -14,6 +14,9 @@ _INTENT_FILE = os.path.join(_BASE_DIR, "intent", "INTENT.json")
 async def get_intent(params: EmptyInput) -> dict:
     """Return the desired network intent."""
     if not os.path.exists(_INTENT_FILE):
-        raise RuntimeError("INTENT.json not found")
-    with open(_INTENT_FILE) as f:
-        return json.load(f)
+        return {"error": "INTENT.json not found"}
+    try:
+        with open(_INTENT_FILE) as f:
+            return json.load(f)
+    except json.JSONDecodeError as e:
+        return {"error": f"INTENT.json is malformed: {e}"}

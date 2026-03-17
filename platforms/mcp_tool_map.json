@@ -42,17 +42,5 @@
     }
   },
 
-  "ping": {
-    "platform_map_section": "tools.ping",
-    "queries": null,
-    "notes": "Params: device, destination. Optional: source, vrf. All devices use SSH CLI."
-  },
-
-  "traceroute": {
-    "platform_map_section": "tools.traceroute",
-    "queries": null,
-    "notes": "Params: device, destination. Optional: source, vrf. All devices use SSH CLI."
-  },
-
   "_vrf_note": "All protocol/routing/operational tools accept an optional vrf parameter. If omitted, the global routing table is used. The vrf parameter is available for future L3VPN deployments. IOS asyncssh CLI tools use dual-entry format; c8000v RESTCONF tools use URL paths."
 }

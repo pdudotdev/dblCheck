@@ -1,0 +1,1019 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>dblCheck Dashboard</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.0/marked.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.1.6/purify.min.js"></script>
+<style>
+  :root {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --border: #30363d;
+    --text: #e6edf3;
+    --muted: #8b949e;
+    --blue: #58a6ff;
+    --green: #3fb950;
+    --yellow: #d29922;
+    --red: #f85149;
+    --orange: #e3b341;
+    --purple: #bc8cff;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'SF Mono', 'Consolas', 'Monaco', monospace;
+    font-size: 15px;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* ── Header ── */
+  #header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 10px 16px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    flex-wrap: wrap;
+    flex-shrink: 0;
+  }
+
+  #header .logo {
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--blue);
+    letter-spacing: 0.5px;
+  }
+
+  .meta-group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--muted);
+    font-size: 14px;
+  }
+  .meta-group .label { color: var(--muted); }
+  .meta-group .value { color: var(--text); font-weight: 600; }
+  .meta-group .value.highlight { color: var(--blue); }
+  .meta-group .value.cost { color: var(--green); }
+  .meta-group .value.pass-count { color: var(--green); }
+  .meta-group .value.fail-count { color: var(--red); }
+
+  #status-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--muted);
+    display: inline-block;
+    margin-right: 4px;
+  }
+  #status-dot.validating { background: var(--yellow); box-shadow: 0 0 6px var(--yellow); animation: pulse 2s infinite; }
+  #status-dot.diagnosing { background: var(--blue); box-shadow: 0 0 6px var(--blue); animation: pulse 2s infinite; }
+  #status-dot.idle       { background: var(--green); }
+  #status-dot.disconnected { background: var(--red); }
+
+  @keyframes pulse {
+    0%   { box-shadow: 0 0 0 0 rgba(88,166,255,0.5); }
+    70%  { box-shadow: 0 0 0 6px rgba(88,166,255,0); }
+    100% { box-shadow: 0 0 0 0 rgba(88,166,255,0); }
+  }
+
+  #ws-status { font-size: 13px; color: var(--muted); }
+  #ws-status.error { color: var(--red); }
+
+  #history-select {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: inherit;
+    font-size: 13px;
+    padding: 3px 8px;
+    border-radius: 3px;
+    cursor: pointer;
+    max-width: 220px;
+  }
+  #history-select option { background: var(--surface); }
+
+  #dismiss-btn {
+    margin-left: auto;
+    background: transparent;
+    border: 1px solid var(--muted);
+    color: var(--muted);
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    padding: 3px 10px;
+    border-radius: 3px;
+    cursor: pointer;
+    display: none;
+  }
+  #dismiss-btn:hover { background: rgba(139,148,158,0.15); color: var(--text); }
+
+  /* ── Resize handle ── */
+  #resize-handle {
+    height: 6px;
+    cursor: row-resize;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  #resize-handle.visible { display: flex; }
+  #resize-handle::after {
+    content: "";
+    width: 32px;
+    height: 2px;
+    background: var(--muted);
+    border-radius: 1px;
+    opacity: 0.4;
+  }
+  #resize-handle:hover::after { opacity: 1; }
+
+  /* ── Main content ── */
+  #main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    position: relative;
+  }
+
+  /* ── Validation section ── */
+  #validation-section {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border-bottom: 1px solid var(--border);
+  }
+  #validation-section.full { flex: 1; }
+  #validation-section.compact { flex-shrink: 0; }
+  #validation-section.hidden { display: none; }
+
+  .section-header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 7px 14px;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+  }
+
+  #validation-table-wrapper {
+    flex: 1;
+    overflow-y: auto;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+  }
+
+  thead th {
+    background: var(--surface);
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.8px;
+    padding: 6px 12px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    z-index: 1;
+  }
+
+  tbody tr {
+    border-bottom: 1px solid var(--border);
+    transition: background 0.1s;
+  }
+  tbody tr:hover { background: rgba(255,255,255,0.02); }
+  tbody tr.fail { background: rgba(248,81,73,0.04); }
+  tbody tr.error { background: rgba(227,179,65,0.04); }
+
+  tbody td {
+    padding: 7px 12px;
+    vertical-align: top;
+    line-height: 1.4;
+  }
+
+  .col-device { color: var(--orange); font-weight: 600; white-space: nowrap; }
+  .col-type   { color: var(--muted); font-size: 12px; white-space: nowrap; }
+  .col-desc   { color: var(--text); max-width: 340px; }
+  .col-expected { color: var(--muted); font-size: 13px; }
+  .col-actual   { font-size: 13px; }
+  tbody tr.fail  .col-actual { color: var(--red); }
+  tbody tr.error .col-actual { color: var(--orange); }
+  .col-result { white-space: nowrap; }
+
+  .badge {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.6px;
+    padding: 2px 6px;
+    border-radius: 3px;
+  }
+  .badge.pass  { background: rgba(63,185,80,0.15);  color: var(--green);  border: 1px solid rgba(63,185,80,0.4); }
+  .badge.fail  { background: rgba(248,81,73,0.15);  color: var(--red);    border: 1px solid rgba(248,81,73,0.4); }
+  .badge.error { background: rgba(227,179,65,0.15); color: var(--orange); border: 1px solid rgba(227,179,65,0.4); }
+
+  /* Compact summary bar (shown during diagnosis) */
+  #summary-bar {
+    padding: 8px 14px;
+    display: none;
+    align-items: center;
+    gap: 16px;
+    font-size: 13px;
+  }
+  #summary-bar.visible { display: flex; }
+  .summary-item { font-weight: 600; }
+  .summary-item.pass  { color: var(--green); }
+  .summary-item.fail  { color: var(--red); }
+  .summary-item.error { color: var(--orange); }
+  #summary-run-time { color: var(--muted); margin-left: auto; }
+
+  /* ── Diagnosis section ── */
+  #diagnosis-section {
+    display: none;
+    flex: 1;
+    overflow: hidden;
+    grid-template-columns: 1fr 1fr;
+  }
+  #diagnosis-section.visible {
+    display: grid;
+  }
+
+  .panel {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border-right: 1px solid var(--border);
+  }
+  .panel:last-child { border-right: none; }
+
+  .panel-header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 7px 14px;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+  }
+
+  .panel-header .scroll-toggle {
+    margin-left: auto;
+    cursor: pointer;
+    color: var(--muted);
+    font-size: 12px;
+    user-select: none;
+    padding: 2px 6px;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+  }
+  .panel-header .scroll-toggle:hover { color: var(--text); }
+  .panel-header .scroll-toggle.locked { color: var(--yellow); border-color: var(--yellow); }
+
+  .panel-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px 14px;
+    scroll-behavior: smooth;
+  }
+
+  /* ── Idle overlay ── */
+  #idle-overlay {
+    display: none;
+    position: absolute;
+    inset: 0;
+    background: var(--bg);
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    z-index: 10;
+  }
+  #idle-overlay.visible { display: flex; }
+  #idle-overlay .idle-dot {
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    background: var(--green);
+    animation: pulse-green 2.5s infinite;
+  }
+  @keyframes pulse-green {
+    0%   { box-shadow: 0 0 0 0 rgba(63,185,80,0.5); }
+    70%  { box-shadow: 0 0 0 6px rgba(63,185,80,0); }
+    100% { box-shadow: 0 0 0 0 rgba(63,185,80,0); }
+  }
+  #idle-overlay .idle-text { color: var(--muted); font-size: 17px; }
+  #idle-overlay .idle-sub  { color: var(--border); font-size: 13px; margin-top: -8px; }
+
+  /* ── Reasoning panel ── */
+  #reasoning-body { line-height: 1.6; }
+  #reasoning-body p { margin-bottom: 8px; }
+  #reasoning-body code {
+    background: #1c2128;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 1px 5px;
+    font-size: 14px;
+    color: var(--purple);
+  }
+  #reasoning-body pre {
+    background: #1c2128;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 10px 12px;
+    overflow-x: auto;
+    margin-bottom: 10px;
+    font-size: 14px;
+  }
+  #reasoning-body strong { color: var(--orange); }
+  #reasoning-body h1 { font-size: 16px; color: var(--blue); margin-bottom: 6px; margin-top: 10px; }
+  #reasoning-body h2 { font-size: 15px; color: var(--blue); margin-bottom: 6px; margin-top: 10px; }
+  #reasoning-body h3 { font-size: 14px; color: var(--blue); margin-bottom: 6px; margin-top: 10px; }
+  #reasoning-body table { border-collapse: collapse; margin-bottom: 10px; font-size: 14px; }
+  #reasoning-body th, #reasoning-body td { border: 1px solid var(--border); padding: 4px 8px; }
+  #reasoning-body th { background: var(--surface); color: var(--blue); }
+
+  #cursor {
+    display: inline-block;
+    width: 8px; height: 14px;
+    background: var(--text);
+    animation: blink 1s step-end infinite;
+    vertical-align: text-bottom;
+  }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  /* ── Tool calls panel ── */
+  .tool-entry { margin-bottom: 8px; border: 1px solid var(--border); border-radius: 5px; overflow: hidden; }
+  .tool-header { padding: 7px 10px; cursor: pointer; display: flex; align-items: center; gap: 8px; user-select: none; background: var(--surface); }
+  .tool-header:hover { background: #1c2128; }
+  .tool-icon { font-size: 14px; width: 16px; text-align: center; flex-shrink: 0; }
+  .tool-name { font-weight: 700; color: var(--blue); font-size: 14px; }
+  .tool-name.mcp { background: rgba(63,185,80,0.15); color: var(--green); border: 1px solid rgba(63,185,80,0.4); border-radius: 3px; padding: 1px 6px; }
+  .tool-device { color: var(--orange); font-size: 13px; font-weight: 600; }
+  .tool-args { color: var(--muted); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; }
+  .tool-status { margin-left: auto; font-size: 12px; font-weight: 700; flex-shrink: 0; }
+  .tool-status.pending { color: var(--yellow); }
+  .tool-status.done    { color: var(--green); }
+  .tool-status.error   { color: var(--red); }
+  .tool-body { display: none; border-top: 1px solid var(--border); }
+  .tool-body.open { display: block; }
+  .tool-section { padding: 8px 10px; border-bottom: 1px solid var(--border); }
+  .tool-section:last-child { border-bottom: none; }
+  .tool-section-label { font-size: 12px; font-weight: 700; color: var(--muted); letter-spacing: 0.8px; margin-bottom: 5px; }
+  .tool-section pre { background: #1c2128; border-radius: 3px; padding: 8px 10px; overflow-x: auto; font-size: 13px; line-height: 1.5; white-space: pre-wrap; word-break: break-all; }
+  .tool-result-text { font-size: 14px; color: var(--green); line-height: 1.5; white-space: pre-wrap; word-break: break-all; max-height: 400px; overflow-y: auto; }
+  .tool-result-truncated { color: var(--muted); font-size: 13px; font-style: italic; margin-top: 6px; }
+  .show-more-btn { cursor: pointer; color: var(--blue); font-size: 13px; margin-top: 4px; display: inline-block; }
+  .show-more-btn:hover { text-decoration: underline; }
+
+  .copy-btn {
+    cursor: pointer; color: var(--muted); font-size: 12px; padding: 2px 6px;
+    border: 1px solid var(--border); border-radius: 3px; background: transparent;
+    font-family: inherit; letter-spacing: 0.5px;
+  }
+  .copy-btn:hover { color: var(--text); border-color: var(--muted); }
+
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<div id="header">
+  <span class="logo">dblCheck</span>
+
+  <div class="meta-group">
+    <span id="status-dot" class="idle"></span>
+    <span class="label">STATUS</span>
+    <span class="value" id="hdr-status">Idle</span>
+  </div>
+
+  <div class="meta-group" id="hdr-results-group" style="display:none">
+    <span class="value pass-count" id="hdr-pass">—</span>
+    <span class="label">pass</span>
+    <span class="value fail-count" id="hdr-fail">—</span>
+    <span class="label">fail</span>
+  </div>
+
+  <div class="meta-group" id="hdr-elapsed-group" style="display:none">
+    <span class="label">ELAPSED</span>
+    <span class="value" id="hdr-elapsed">0s</span>
+  </div>
+
+  <div class="meta-group" id="hdr-cost-group" style="display:none">
+    <span class="label">COST</span>
+    <span class="value cost" id="hdr-cost">—</span>
+  </div>
+
+  <div class="meta-group" id="hdr-run-group" style="display:none">
+    <span class="label">RUN</span>
+    <span class="value" id="hdr-run">—</span>
+  </div>
+
+  <select id="history-select" onchange="loadHistoryRun(this.value)" title="View past runs">
+    <option value="">History</option>
+  </select>
+
+  <button id="dismiss-btn" onclick="dismissSession()">✕ DISMISS</button>
+  <div id="ws-status">Connecting…</div>
+</div>
+
+<!-- Main content area -->
+<div id="main">
+
+  <!-- Idle overlay (shown when no runs exist yet) -->
+  <div id="idle-overlay" class="visible">
+    <div class="idle-dot"></div>
+    <div class="idle-text">No Validation Data</div>
+    <div class="idle-sub">Waiting for first validation run</div>
+  </div>
+
+  <!-- Validation results section (full when idle, compact bar when diagnosing) -->
+  <div id="validation-section" class="full hidden">
+    <div class="section-header">
+      VALIDATION RESULTS
+      <span id="val-timestamp" style="color:var(--muted);font-size:12px;font-weight:400"></span>
+      <span id="val-duration"  style="color:var(--muted);font-size:12px;font-weight:400"></span>
+    </div>
+    <!-- Full table (idle phase) -->
+    <div id="validation-table-wrapper">
+      <table>
+        <thead>
+          <tr>
+            <th>DEVICE</th>
+            <th>TYPE</th>
+            <th>DESCRIPTION</th>
+            <th>EXPECTED</th>
+            <th>ACTUAL</th>
+            <th>RESULT</th>
+          </tr>
+        </thead>
+        <tbody id="assertions-body"></tbody>
+      </table>
+    </div>
+    <!-- Compact summary bar (diagnosing phase) -->
+    <div id="summary-bar">
+      <span class="summary-item pass" id="sb-pass">0 pass</span>
+      <span class="summary-item fail" id="sb-fail">0 fail</span>
+      <span class="summary-item error" id="sb-error">0 error</span>
+      <span id="summary-run-time"></span>
+    </div>
+  </div>
+
+  <!-- Drag handle for resizing validation/diagnosis split -->
+  <div id="resize-handle"></div>
+
+  <!-- Diagnosis panels (two-column, shown only during/after diagnosis) -->
+  <div id="diagnosis-section">
+    <div class="panel">
+      <div class="panel-header">
+        AGENT REASONING
+        <button class="copy-btn" onclick="copyPanel('reasoning-body', this)">COPY</button>
+        <span class="scroll-toggle" id="reasoning-lock-btn" onclick="toggleReasoningLock()">AUTO-SCROLL ON</span>
+      </div>
+      <div class="panel-body" id="reasoning-body"></div>
+    </div>
+    <div class="panel">
+      <div class="panel-header">
+        TOOL CALLS
+        <button class="copy-btn" onclick="copyPanel('tools-body', this)">COPY</button>
+        <span class="scroll-toggle" id="tools-lock-btn" onclick="toggleToolsLock()">AUTO-SCROLL ON</span>
+      </div>
+      <div class="panel-body" id="tools-body"></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const MAX_RESULT_LINES = 500;
+const RECONNECT_BASE_MS = 3000;
+const RECONNECT_MAX_MS = 30000;
+
+let ws = null;
+let reconnectDelay = RECONNECT_BASE_MS;
+let sessionStartTime = null;
+let elapsedTimer = null;
+let reasoningLocked = false;
+let toolsLocked = false;
+let reasoningBuffer = "";
+let reasoningRenderedLen = 0;
+let renderPending = false;
+let sessionHeld = false;
+let currentRunData = null;
+
+const toolEntries = {};
+
+// ─── WebSocket ────────────────────────────────────────────────────────────────
+function connect() {
+  const wsUrl = `ws://${location.hostname}:${location.port}`;
+  setWsStatus("Connecting…", false);
+  ws = new WebSocket(wsUrl);
+  ws.onopen  = () => { setWsStatus("Connected", false); reconnectDelay = RECONNECT_BASE_MS; };
+  ws.onmessage = (e) => { try { handleMessage(JSON.parse(e.data)); } catch {} };
+  ws.onclose = () => {
+    setWsStatus(`Reconnecting in ${Math.round(reconnectDelay/1000)}s…`, true);
+    setTimeout(connect, reconnectDelay);
+    reconnectDelay = Math.min(reconnectDelay * 1.5, RECONNECT_MAX_MS);
+  };
+  ws.onerror = () => {};
+}
+
+// ─── Message dispatcher ───────────────────────────────────────────────────────
+function handleMessage(msg) {
+  switch (msg.ui_type) {
+    case "init":                handleInit(msg); break;
+    case "validation_start":   onValidationStart(msg); break;
+    case "validation_results": onValidationResults(msg); break;
+    case "session_start":      onSessionStart(msg); break;
+    case "session_idle":       onSessionIdle(); break;
+    case "session_end":        onSessionEnd(msg); break;
+    case "reasoning":          appendReasoning(msg.text); break;
+    case "tool_start":         addToolEntry(msg.id, msg.tool, msg.is_mcp); break;
+    case "tool_input_complete": updateToolInput(msg.id, msg.tool, msg.input); break;
+    case "tool_result":        setToolResult(msg.id, msg.output); break;
+  }
+}
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+function handleInit(msg) {
+  if (msg.run_history) populateHistory(msg.run_history);
+
+  const s = msg.state && msg.state.state;
+  if (msg.last_run) {
+    onValidationResults(msg.last_run);
+  }
+  if (s === "validating") {
+    onValidationStart(msg.state);
+  } else if (s === "diagnosing") {
+    onSessionStart(msg.state);
+  } else if (!msg.last_run) {
+    showIdleOverlay();
+  }
+
+  if (msg.buffer) msg.buffer.forEach(ev => handleMessage(ev));
+}
+
+// ─── Validation lifecycle ─────────────────────────────────────────────────────
+function onValidationStart(msg) {
+  setStatus("Validating…", "validating");
+  showMeta("hdr-elapsed-group", "hdr-elapsed", "0s");
+  hideMeta("hdr-results-group");
+  sessionStartTime = msg.started_at ? new Date(msg.started_at) : new Date();
+  startElapsedTimer();
+  hideIdleOverlay();
+  // Keep validation table visible with last results (still useful context)
+  showValidationTable();
+}
+
+function onValidationResults(msg) {
+  currentRunData = msg;
+  renderAssertionTable(msg);
+  const summary = msg.summary || {};
+  document.getElementById("hdr-pass").textContent = summary.passed ?? 0;
+  document.getElementById("hdr-fail").textContent = summary.failed ?? 0;
+  showMeta("hdr-results-group", null, null);
+  document.getElementById("hdr-results-group").style.display = "flex";
+
+  const runName = (msg.run_name || "").replace("run-", "");
+  if (runName) {
+    showMeta("hdr-run-group", "hdr-run", runName);
+  }
+
+  // Update compact summary bar
+  document.getElementById("sb-pass").textContent  = `${summary.passed ?? 0} pass`;
+  document.getElementById("sb-fail").textContent  = `${summary.failed ?? 0} fail`;
+  document.getElementById("sb-error").textContent = `${summary.errors ?? 0} error`;
+  document.getElementById("summary-run-time").textContent = msg.timestamp || "";
+
+  hideIdleOverlay();
+  showValidationTable();
+}
+
+function onSessionStart(msg) {
+  // Collapse validation table to summary bar, show diagnosis panels
+  sessionHeld = false;
+  document.getElementById("dismiss-btn").style.display = "none";
+  clearDiagnosisPanels();
+
+  setStatus("Diagnosing", "diagnosing");
+  sessionStartTime = msg.started_at ? new Date(msg.started_at) : new Date();
+  startElapsedTimer();
+
+  showValidationCompact();
+  showDiagnosisPanels();
+}
+
+function onSessionIdle() {
+  if (sessionHeld) {
+    setStatus("Completed", "idle");
+    return;
+  }
+  stopElapsedTimer();
+  hideDiagnosisPanels();
+  if (currentRunData) {
+    setStatus("Idle", "idle");
+    showValidationTable();
+  } else {
+    showIdleOverlay();
+  }
+}
+
+function onSessionEnd(msg) {
+  sessionHeld = true;
+  stopElapsedTimer();
+  setStatus("Completed", "idle");
+  document.getElementById("dismiss-btn").style.display = "block";
+  if (msg.cost != null) {
+    showMeta("hdr-cost-group", "hdr-cost", `$${msg.cost.toFixed(4)}`);
+  }
+  const cursor = document.getElementById("cursor");
+  if (cursor) cursor.remove();
+  flushReasoning();
+}
+
+function dismissSession() {
+  sessionHeld = false;
+  document.getElementById("dismiss-btn").style.display = "none";
+  hideDiagnosisPanels();
+  hideMeta("hdr-cost-group");
+  if (currentRunData) {
+    setStatus("Idle", "idle");
+    showValidationTable();
+  } else {
+    showIdleOverlay();
+  }
+}
+
+// ─── Layout helpers ───────────────────────────────────────────────────────────
+function showIdleOverlay()  { document.getElementById("idle-overlay").classList.add("visible"); }
+function hideIdleOverlay()  { document.getElementById("idle-overlay").classList.remove("visible"); }
+
+function showValidationTable() {
+  const vs = document.getElementById("validation-section");
+  vs.classList.remove("hidden", "compact");
+  vs.classList.add("full");
+  vs.style.height = "";
+  vs.style.flex = "";
+  const tw = document.getElementById("validation-table-wrapper");
+  tw.style.display = "block";
+  tw.style.maxHeight = "";
+  document.getElementById("summary-bar").classList.remove("visible");
+}
+
+function showValidationCompact() {
+  const vs = document.getElementById("validation-section");
+  vs.classList.remove("hidden", "full");
+  vs.classList.add("compact");
+  const tw = document.getElementById("validation-table-wrapper");
+  tw.style.display = "block";
+  const failRows = tw.querySelectorAll("tr.fail, tr.error").length;
+  const ideal = 32 + failRows * 34 + 2;
+  const maxCap = Math.floor(window.innerHeight * 0.4);
+  tw.style.maxHeight = Math.min(ideal, maxCap) + "px";
+  document.getElementById("summary-bar").classList.add("visible");
+}
+
+function showDiagnosisPanels() {
+  document.getElementById("diagnosis-section").classList.add("visible");
+  document.getElementById("resize-handle").classList.add("visible");
+}
+
+function hideDiagnosisPanels() {
+  document.getElementById("diagnosis-section").classList.remove("visible");
+  document.getElementById("resize-handle").classList.remove("visible");
+}
+
+// ─── Assertion table ──────────────────────────────────────────────────────────
+function renderAssertionTable(data) {
+  const assertions = (data.assertions || []).slice();
+  // Sort: fail first, error second, pass last
+  assertions.sort((a, b) => {
+    const order = { fail: 0, error: 1, pass: 2 };
+    return (order[a.result] ?? 2) - (order[b.result] ?? 2);
+  });
+
+  const tbody = document.getElementById("assertions-body");
+  tbody.innerHTML = "";
+
+  assertions.forEach(a => {
+    const tr = document.createElement("tr");
+    tr.className = `assertion-row ${a.result}`;
+    tr.innerHTML = `
+      <td class="col-device">${escHtml(a.device || "")}</td>
+      <td class="col-type">${escHtml(a.type || "")}</td>
+      <td class="col-desc">${escHtml(a.description || "")}</td>
+      <td class="col-expected">${escHtml(String(a.expected ?? ""))}</td>
+      <td class="col-actual">${escHtml(String(a.actual ?? "—"))}</td>
+      <td class="col-result"><span class="badge ${a.result}">${a.result.toUpperCase()}</span></td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  // Update section header timestamp/duration
+  if (data.timestamp) {
+    document.getElementById("val-timestamp").textContent = data.timestamp;
+  }
+  if (data.duration_sec != null) {
+    document.getElementById("val-duration").textContent = `  ${data.duration_sec}s`;
+  }
+}
+
+// ─── History dropdown ─────────────────────────────────────────────────────────
+function populateHistory(runs) {
+  const sel = document.getElementById("history-select");
+  // Clear existing options except the placeholder
+  while (sel.options.length > 1) sel.remove(1);
+  runs.forEach(r => {
+    const opt = document.createElement("option");
+    opt.value = r.name;
+    const s = r.summary || {};
+    opt.textContent = `${r.name.replace("run-", "")}  ${s.passed ?? 0}✓ ${s.failed ?? 0}✗`;
+    sel.appendChild(opt);
+  });
+}
+
+function loadHistoryRun(runName) {
+  if (!runName) return;
+  fetch(`/api/run/${runName}`)
+    .then(r => r.ok ? r.json() : null)
+    .then(data => {
+      if (data) {
+        onValidationResults(data);
+        hideDiagnosisPanels();
+        showValidationTable();
+        setStatus("Idle", "idle");
+      }
+    })
+    .catch(() => {});
+  // Reset selector
+  document.getElementById("history-select").value = "";
+}
+
+// ─── Reasoning panel ──────────────────────────────────────────────────────────
+function appendReasoning(text) {
+  reasoningBuffer += text;
+  if (!renderPending) {
+    renderPending = true;
+    requestAnimationFrame(flushReasoning);
+  }
+}
+
+function flushReasoning() {
+  renderPending = false;
+  if (reasoningBuffer.length === reasoningRenderedLen) return;
+  reasoningRenderedLen = reasoningBuffer.length;
+  const body = document.getElementById("reasoning-body");
+  const cursor = document.getElementById("cursor");
+  if (cursor) cursor.remove();
+  // Re-parse only the current buffer. marked.parse is fast for typical session sizes;
+  // reasoningRenderedLen tracks that we don't re-render when nothing changed.
+  body.innerHTML = DOMPurify.sanitize(marked.parse(reasoningBuffer));
+  body.querySelectorAll("pre code").forEach(el => hljs.highlightElement(el));
+  const cur = document.createElement("span");
+  cur.id = "cursor";
+  body.appendChild(cur);
+  if (!reasoningLocked) body.scrollTop = body.scrollHeight;
+}
+
+// ─── Tool calls panel ─────────────────────────────────────────────────────────
+function addToolEntry(id, toolName, isMcp) {
+  if (!id) return;
+  const body = document.getElementById("tools-body");
+  const nameClass = isMcp ? "tool-name mcp" : "tool-name";
+  const entry = document.createElement("div");
+  entry.className = "tool-entry";
+  entry.id = `tool-${id}`;
+  entry.innerHTML = `
+    <div class="tool-header" onclick="toggleTool('${id}')">
+      <span class="tool-icon">⚙</span>
+      <span class="${nameClass}">${escHtml(toolName)}</span>
+      <span class="tool-device" id="tool-device-${id}"></span>
+      <span class="tool-args" id="tool-args-${id}">…</span>
+      <span class="tool-status pending" id="tool-status-${id}">RUNNING</span>
+    </div>
+    <div class="tool-body" id="tool-body-${id}"></div>
+  `;
+  body.appendChild(entry);
+  toolEntries[id] = { el: entry, hasResult: false, isMcp };
+  if (!toolsLocked) body.scrollTop = body.scrollHeight;
+}
+
+function updateToolInput(id, toolName, input) {
+  if (!id) return;
+  const argsEl   = document.getElementById(`tool-args-${id}`);
+  const deviceEl = document.getElementById(`tool-device-${id}`);
+  const bodyEl   = document.getElementById(`tool-body-${id}`);
+  if (!bodyEl) return;
+
+  const params = (input && input.params) ? input.params : input;
+  if (params && params.device && deviceEl) {
+    deviceEl.textContent = `(${params.device})`;
+  }
+  const argParts = Object.entries(params || {})
+    .filter(([k]) => k !== "device")
+    .map(([k, v]) => `${k}: ${JSON.stringify(v)}`);
+  if (argsEl) argsEl.textContent = argParts.join(" | ") || "";
+
+  const section = document.createElement("div");
+  section.className = "tool-section";
+  section.innerHTML = `
+    <div class="tool-section-label">INPUT</div>
+    <pre>${escHtml(JSON.stringify(params, null, 2))}</pre>
+  `;
+  bodyEl.appendChild(section);
+}
+
+function setToolResult(id, output) {
+  if (!id) return;
+  const statusEl = document.getElementById(`tool-status-${id}`);
+  const bodyEl   = document.getElementById(`tool-body-${id}`);
+  const lines = String(output).split("\n");
+  const truncated = lines.length > MAX_RESULT_LINES;
+  const displayText = truncated ? lines.slice(0, MAX_RESULT_LINES).join("\n") : String(output);
+  const isError = output.toLowerCase().includes("error") && output.length < 200;
+
+  if (statusEl) {
+    statusEl.textContent = "DONE";
+    statusEl.className = isError ? "tool-status error" : "tool-status done";
+  }
+  if (bodyEl) {
+    const section = document.createElement("div");
+    section.className = "tool-section";
+    let html = `<div class="tool-section-label">RESULT</div>
+      <div class="tool-result-text">${escHtml(displayText)}</div>`;
+    if (truncated) {
+      // Use a data attribute to avoid XSS from inlining tool output into onclick
+      const btnId = `show-more-${id}-${Date.now()}`;
+      html += `<div class="tool-result-truncated">… ${lines.length - MAX_RESULT_LINES} more lines hidden</div>
+        <span class="show-more-btn" id="${escHtml(btnId)}">Show all ${lines.length} lines</span>`;
+      // Attach handler after innerHTML is set (avoids quoting/escaping issues entirely)
+      requestAnimationFrame(() => {
+        const btn = document.getElementById(btnId);
+        if (btn) btn.addEventListener("click", () => showFullResult(btn, output));
+      });
+    }
+    section.innerHTML = html;
+    bodyEl.appendChild(section);
+    bodyEl.classList.add("open");
+  }
+  if (toolEntries[id]) toolEntries[id].hasResult = true;
+  const toolsBody = document.getElementById("tools-body");
+  if (!toolsLocked) toolsBody.scrollTop = toolsBody.scrollHeight;
+}
+
+function toggleTool(id) {
+  const body = document.getElementById(`tool-body-${id}`);
+  if (body) body.classList.toggle("open");
+}
+
+function showFullResult(btn, fullText) {
+  const container = btn.parentElement;
+  container.querySelector(".tool-result-text").textContent = fullText;
+  const note = container.querySelector(".tool-result-truncated");
+  if (note) note.remove();
+  btn.remove();
+}
+
+function clearDiagnosisPanels() {
+  document.getElementById("reasoning-body").innerHTML = "";
+  document.getElementById("tools-body").innerHTML = "";
+  reasoningBuffer = "";
+  reasoningRenderedLen = 0;
+  renderPending = false;
+  Object.keys(toolEntries).forEach(k => delete toolEntries[k]);
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+function setStatus(text, dotClass) {
+  document.getElementById("hdr-status").textContent = text;
+  document.getElementById("status-dot").className = dotClass;
+}
+
+function showMeta(groupId, valueId, text) {
+  document.getElementById(groupId).style.display = "flex";
+  if (valueId && text !== null) document.getElementById(valueId).textContent = text;
+}
+
+function hideMeta(groupId) {
+  document.getElementById(groupId).style.display = "none";
+}
+
+function setWsStatus(text, isError) {
+  const el = document.getElementById("ws-status");
+  el.textContent = text;
+  el.className = isError ? "error" : "";
+}
+
+function startElapsedTimer() {
+  stopElapsedTimer();
+  elapsedTimer = setInterval(updateElapsed, 1000);
+  updateElapsed();
+}
+
+function stopElapsedTimer() {
+  if (elapsedTimer) { clearInterval(elapsedTimer); elapsedTimer = null; }
+}
+
+function updateElapsed() {
+  if (!sessionStartTime) return;
+  const sec = Math.floor((Date.now() - sessionStartTime.getTime()) / 1000);
+  const m = Math.floor(sec / 60), s = sec % 60;
+  document.getElementById("hdr-elapsed").textContent = m > 0 ? `${m}m ${s}s` : `${s}s`;
+}
+
+function copyPanel(panelId, btn) {
+  const el = document.getElementById(panelId);
+  if (!el) return;
+  navigator.clipboard.writeText(el.innerText || el.textContent).then(() => {
+    const orig = btn.textContent;
+    btn.textContent = "COPIED";
+    setTimeout(() => { btn.textContent = orig; }, 1500);
+  });
+}
+
+function toggleReasoningLock() {
+  reasoningLocked = !reasoningLocked;
+  const btn = document.getElementById("reasoning-lock-btn");
+  btn.textContent = reasoningLocked ? "AUTO-SCROLL OFF" : "AUTO-SCROLL ON";
+  btn.className = reasoningLocked ? "scroll-toggle locked" : "scroll-toggle";
+}
+
+function toggleToolsLock() {
+  toolsLocked = !toolsLocked;
+  const btn = document.getElementById("tools-lock-btn");
+  btn.textContent = toolsLocked ? "AUTO-SCROLL OFF" : "AUTO-SCROLL ON";
+  btn.className = toolsLocked ? "scroll-toggle locked" : "scroll-toggle";
+}
+
+function escHtml(str) {
+  return String(str)
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+// ─── Resize handle ────────────────────────────────────────────────────────────
+(function() {
+  const handle = document.getElementById("resize-handle");
+  const vs     = document.getElementById("validation-section");
+  let dragging = false, startY, startH;
+
+  handle.addEventListener("mousedown", e => {
+    dragging = true;
+    startY = e.clientY;
+    startH = vs.getBoundingClientRect().height;
+    document.body.style.cursor    = "row-resize";
+    document.body.style.userSelect = "none";
+    e.preventDefault();
+  });
+
+  document.addEventListener("mousemove", e => {
+    if (!dragging) return;
+    const h = Math.max(60, startH + (e.clientY - startY));
+    vs.style.height = h + "px";
+    vs.style.flex   = "none";
+    document.getElementById("validation-table-wrapper").style.maxHeight = "";
+  });
+
+  document.addEventListener("mouseup", () => {
+    if (!dragging) return;
+    dragging = false;
+    document.body.style.cursor    = "";
+    document.body.style.userSelect = "";
+  });
+})();
+
+// ─── Start ────────────────────────────────────────────────────────────────────
+connect();
+</script>
+</body>
+</html>
