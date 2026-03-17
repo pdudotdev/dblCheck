@@ -1,0 +1,395 @@
+{
+  "autonomous_systems": {
+    "AS1010": {
+      "description": "Enterprise network",
+      "role": "enterprise_core",
+      "igp": ["OSPF"],
+      "edge_routers": ["E1C", "E2C"]
+    },
+    "AS2020": {
+      "description": "Remote site",
+      "role": "enterprise_remote",
+      "igp": [],
+      "edge_routers": ["X1C"]
+    },
+    "AS4040": {
+      "description": "ISP A",
+      "role": "transit_provider",
+      "customers": ["AS1010", "AS2020"]
+    },
+    "AS5050": {
+      "description": "ISP B",
+      "role": "transit_provider",
+      "customers": ["AS1010", "AS2020"]
+    }
+  },
+
+  "routers": {
+
+    "A1C": {
+      "roles": ["OSPF_AREA1_LEAF"],
+      "direct_links": {
+        "C1C": {
+          "local_interface": "Ethernet1/3",
+          "local_ip": "10.1.1.5",
+          "remote_ip": "10.1.1.6",
+          "subnet": "10.1.1.4/30"
+        },
+        "C2C": {
+          "local_interface": "Ethernet1/2",
+          "local_ip": "10.1.1.9",
+          "remote_ip": "10.1.1.10",
+          "subnet": "10.1.1.8/30"
+        }
+      },
+      "igp": {
+        "ospf": {
+          "areas": {
+            "1": ["10.1.1.4/30", "10.1.1.8/30"]
+          },
+          "area_type": "stub"
+        }
+      },
+      "default_gateway": ["C1C", "C2C"]
+    },
+
+    "A2C": {
+      "roles": ["OSPF_AREA1_LEAF"],
+      "direct_links": {
+        "C1C": {
+          "local_interface": "Ethernet1/2",
+          "local_ip": "10.1.1.13",
+          "remote_ip": "10.1.1.14",
+          "subnet": "10.1.1.12/30"
+        },
+        "C2C": {
+          "local_interface": "Ethernet1/3",
+          "local_ip": "10.1.1.17",
+          "remote_ip": "10.1.1.18",
+          "subnet": "10.1.1.16/30"
+        }
+      },
+      "igp": {
+        "ospf": {
+          "router_id": "2.2.2.2",
+          "areas": {
+            "1": ["10.1.1.12/30", "10.1.1.16/30"]
+          },
+          "area_type": "stub"
+        }
+      },
+      "default_gateway": ["C1C", "C2C"]
+    },
+
+    "C1C": {
+      "roles": ["ABR", "OSPF_AREA0_CORE"],
+      "direct_links": {
+        "A1C": {
+          "local_interface": "GigabitEthernet2",
+          "local_ip": "10.1.1.6",
+          "remote_ip": "10.1.1.5",
+          "subnet": "10.1.1.4/30"
+        },
+        "A2C": {
+          "local_interface": "GigabitEthernet3",
+          "local_ip": "10.1.1.14",
+          "remote_ip": "10.1.1.13",
+          "subnet": "10.1.1.12/30"
+        },
+        "C2C": {
+          "local_interface": "GigabitEthernet4",
+          "local_ip": "10.0.0.21",
+          "remote_ip": "10.0.0.22",
+          "subnet": "10.0.0.20/30"
+        },
+        "E1C": {
+          "local_interface": "GigabitEthernet6",
+          "local_ip": "10.0.0.25",
+          "remote_ip": "10.0.0.26",
+          "subnet": "10.0.0.24/30"
+        },
+        "E2C": {
+          "local_interface": "GigabitEthernet5",
+          "local_ip": "10.0.0.29",
+          "remote_ip": "10.0.0.30",
+          "subnet": "10.0.0.28/30"
+        }
+      },
+      "igp": {
+        "ospf": {
+          "router_id": "22.22.22.11",
+          "areas": {
+            "0": ["10.0.0.20/30", "10.0.0.24/30", "10.0.0.28/30"],
+            "1": ["10.1.1.4/30", "10.1.1.12/30"]
+          },
+          "area_types": {
+            "1": "stub"
+          }
+        }
+      }
+    },
+
+    "C2C": {
+      "roles": ["ABR", "OSPF_AREA0_CORE"],
+      "direct_links": {
+        "A1C": {
+          "local_interface": "GigabitEthernet3",
+          "local_ip": "10.1.1.10",
+          "remote_ip": "10.1.1.9",
+          "subnet": "10.1.1.8/30"
+        },
+        "A2C": {
+          "local_interface": "GigabitEthernet2",
+          "local_ip": "10.1.1.18",
+          "remote_ip": "10.1.1.17",
+          "subnet": "10.1.1.16/30"
+        },
+        "C1C": {
+          "local_interface": "GigabitEthernet4",
+          "local_ip": "10.0.0.22",
+          "remote_ip": "10.0.0.21",
+          "subnet": "10.0.0.20/30"
+        },
+        "E1C": {
+          "local_interface": "GigabitEthernet5",
+          "local_ip": "10.0.0.33",
+          "remote_ip": "10.0.0.34",
+          "subnet": "10.0.0.32/30"
+        },
+        "E2C": {
+          "local_interface": "GigabitEthernet6",
+          "local_ip": "10.0.0.37",
+          "remote_ip": "10.0.0.38",
+          "subnet": "10.0.0.36/30"
+        }
+      },
+      "igp": {
+        "ospf": {
+          "areas": {
+            "0": ["10.0.0.20/30", "10.0.0.32/30", "10.0.0.36/30"],
+            "1": ["10.1.1.8/30", "10.1.1.16/30"]
+          },
+          "area_types": {
+            "1": "stub"
+          }
+        }
+      }
+    },
+
+    "E1C": {
+      "roles": ["ASBR", "NAT_EDGE"],
+      "direct_links": {
+        "C1C": {
+          "local_interface": "GigabitEthernet2",
+          "local_ip": "10.0.0.26",
+          "remote_ip": "10.0.0.25",
+          "subnet": "10.0.0.24/30"
+        },
+        "C2C": {
+          "local_interface": "GigabitEthernet3",
+          "local_ip": "10.0.0.34",
+          "remote_ip": "10.0.0.33",
+          "subnet": "10.0.0.32/30"
+        },
+        "IAN": {
+          "local_interface": "GigabitEthernet5",
+          "local_ip": "200.40.40.1",
+          "remote_ip": "200.40.40.2",
+          "subnet": "200.40.40.0/30"
+        },
+        "IBN": {
+          "local_interface": "GigabitEthernet4",
+          "local_ip": "200.50.50.1",
+          "remote_ip": "200.50.50.2",
+          "subnet": "200.50.50.0/30"
+        }
+      },
+      "asn": 1010,
+      "igp": {
+        "ospf": {
+          "router_id": "33.33.33.11",
+          "areas": {
+            "0": ["10.0.0.24/30", "10.0.0.32/30"]
+          },
+          "default_originate": {
+            "enabled": true,
+            "type": "E1",
+            "always": true
+          }
+        }
+      },
+      "bgp": {
+        "neighbors": {
+          "ISP_A": {"peer": "200.40.40.2", "as": 4040},
+          "ISP_B": {"peer": "200.50.50.2", "as": 5050}
+        },
+        "policy": {
+          "accept_default_only": true,
+          "advertise_internal": false
+        }
+      },
+      "nat": {
+        "mode": "PAT",
+        "inside_domains": ["OSPF"],
+        "outside_links": ["ISP_A", "ISP_B"]
+      }
+    },
+
+    "E2C": {
+      "roles": ["ASBR", "NAT_EDGE"],
+      "direct_links": {
+        "C2C": {
+          "local_interface": "GigabitEthernet2",
+          "local_ip": "10.0.0.38",
+          "remote_ip": "10.0.0.37",
+          "subnet": "10.0.0.36/30"
+        },
+        "C1C": {
+          "local_interface": "GigabitEthernet3",
+          "local_ip": "10.0.0.30",
+          "remote_ip": "10.0.0.29",
+          "subnet": "10.0.0.28/30"
+        },
+        "IAN": {
+          "local_interface": "GigabitEthernet4",
+          "local_ip": "200.40.40.5",
+          "remote_ip": "200.40.40.6",
+          "subnet": "200.40.40.4/30"
+        },
+        "IBN": {
+          "local_interface": "GigabitEthernet5",
+          "local_ip": "200.50.50.5",
+          "remote_ip": "200.50.50.6",
+          "subnet": "200.50.50.4/30"
+        }
+      },
+      "asn": 1010,
+      "igp": {
+        "ospf": {
+          "router_id": "33.33.33.22",
+          "areas": {
+            "0": ["10.0.0.28/30", "10.0.0.36/30"]
+          },
+          "default_originate": {
+            "enabled": true,
+            "type": "E1",
+            "always": true
+          }
+        }
+      },
+      "bgp": {
+        "neighbors": {
+          "ISP_A": {"peer": "200.40.40.6", "as": 4040},
+          "ISP_B": {"peer": "200.50.50.6", "as": 5050}
+        },
+        "policy": {
+          "accept_default_only": true,
+          "advertise_internal": false
+        }
+      },
+      "nat": {
+        "mode": "PAT",
+        "inside_domains": ["OSPF"],
+        "outside_links": ["ISP_A", "ISP_B"]
+      }
+    },
+
+    "IAN": {
+      "roles": ["ISP_A_EDGE"],
+      "direct_links": {
+        "E1C": {
+          "local_interface": "Ethernet0/1",
+          "local_ip": "200.40.40.2",
+          "remote_ip": "200.40.40.1",
+          "subnet": "200.40.40.0/30"
+        },
+        "E2C": {
+          "local_interface": "Ethernet0/2",
+          "local_ip": "200.40.40.6",
+          "remote_ip": "200.40.40.5",
+          "subnet": "200.40.40.4/30"
+        },
+        "X1C": {
+          "local_interface": "Ethernet0/3",
+          "local_ip": "200.40.8.2",
+          "remote_ip": "200.40.8.1",
+          "subnet": "200.40.8.0/30"
+        }
+      },
+      "asn": 4040,
+      "bgp": {
+        "neighbors": {
+          "E1C": {"peer": "200.40.40.1", "as": 1010},
+          "E2C": {"peer": "200.40.40.5", "as": 1010},
+          "X1C": {"peer": "200.40.8.1", "as": 2020}
+        },
+        "policy": {
+          "send_default_to_customers": true
+        }
+      }
+    },
+
+    "IBN": {
+      "roles": ["ISP_B_EDGE"],
+      "direct_links": {
+        "E1C": {
+          "local_interface": "Ethernet0/2",
+          "local_ip": "200.50.50.2",
+          "remote_ip": "200.50.50.1",
+          "subnet": "200.50.50.0/30"
+        },
+        "E2C": {
+          "local_interface": "Ethernet0/1",
+          "local_ip": "200.50.50.6",
+          "remote_ip": "200.50.50.5",
+          "subnet": "200.50.50.4/30"
+        },
+        "X1C": {
+          "local_interface": "Ethernet0/3",
+          "local_ip": "200.50.8.2",
+          "remote_ip": "200.50.8.1",
+          "subnet": "200.50.8.0/30"
+        }
+      },
+      "asn": 5050,
+      "bgp": {
+        "neighbors": {
+          "E1C": {"peer": "200.50.50.1", "as": 1010},
+          "E2C": {"peer": "200.50.50.5", "as": 1010},
+          "X1C": {"peer": "200.50.8.1", "as": 2020}
+        },
+        "policy": {
+          "send_default_to_customers": true
+        }
+      }
+    },
+
+    "X1C": {
+      "roles": ["ASBR"],
+      "direct_links": {
+        "IAN": {
+          "local_interface": "GigabitEthernet2",
+          "local_ip": "200.40.8.1",
+          "remote_ip": "200.40.8.2",
+          "subnet": "200.40.8.0/30"
+        },
+        "IBN": {
+          "local_interface": "GigabitEthernet3",
+          "local_ip": "200.50.8.1",
+          "remote_ip": "200.50.8.2",
+          "subnet": "200.50.8.0/30"
+        }
+      },
+      "asn": 2020,
+      "bgp": {
+        "neighbors": {
+          "ISP_A": {"peer": "200.40.8.2", "as": 4040},
+          "ISP_B": {"peer": "200.50.8.2", "as": 5050}
+        },
+        "policy": {
+          "accept_default_only": true
+        }
+      }
+    }
+  }
+}

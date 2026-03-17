@@ -1,0 +1,11 @@
+{
+    "A1C":  {"host": "172.20.20.205", "platform": "cisco_iosxe", "transport": "asyncssh", "cli_style": "ios", "location": "Access"},
+    "A2C":  {"host": "172.20.20.206", "platform": "cisco_iosxe", "transport": "asyncssh", "cli_style": "ios", "location": "Access"},
+    "C1C":  {"host": "172.20.20.207", "platform": "cisco_iosxe", "transport": "restconf", "cli_style": "ios", "location": "Core"},
+    "C2C":  {"host": "172.20.20.208", "platform": "cisco_iosxe", "transport": "restconf", "cli_style": "ios", "location": "Core"},
+    "E1C":  {"host": "172.20.20.209", "platform": "cisco_iosxe", "transport": "restconf", "cli_style": "ios", "location": "Edge"},
+    "E2C":  {"host": "172.20.20.210", "platform": "cisco_iosxe", "transport": "restconf", "cli_style": "ios", "location": "Edge"},
+    "IAN":  {"host": "172.20.20.220", "platform": "cisco_iosxe", "transport": "asyncssh", "cli_style": "ios", "location": "ISP A"},
+    "IBN":  {"host": "172.20.20.230", "platform": "cisco_iosxe", "transport": "asyncssh", "cli_style": "ios", "location": "ISP B"},
+    "X1C":  {"host": "172.20.20.240", "platform": "cisco_iosxe", "transport": "restconf", "cli_style": "ios", "location": "Remote"}
+}

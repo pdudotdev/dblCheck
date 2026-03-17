@@ -1,0 +1,58 @@
+{
+  "_policy": "Before calling run_show, look up the command category here. If an MCP tool covers it, use that tool instead. run_show is ONLY for commands absent from this map. An empty result from any MCP tool means the feature is not configured on the device — it does NOT mean the query is unsupported. Never fall back to run_show after an empty MCP tool result.",
+
+  "get_ospf": {
+    "platform_map_section": "ospf",
+    "queries": {
+      "ios":          ["neighbors", "database", "borders", "config", "interfaces", "details"],
+      "ios_restconf": ["neighbors", "database", "borders", "config", "interfaces", "details"]
+    }
+  },
+
+  "get_bgp": {
+    "platform_map_section": "bgp",
+    "queries": {
+      "ios":          ["summary", "table", "config", "neighbors"],
+      "ios_restconf": ["summary", "table", "config", "neighbors"]
+    }
+  },
+
+  "get_routing": {
+    "platform_map_section": "routing_table",
+    "queries": {
+      "ios":          ["ip_route"],
+      "ios_restconf": ["ip_route"]
+    },
+    "notes": "Pass prefix=<ip> for targeted lookup, omit for full table. iOS asyncssh CLI: prefix appended to command string."
+  },
+
+  "get_routing_policies": {
+    "platform_map_section": "routing_policies",
+    "queries": {
+      "ios":          ["redistribution", "route_maps", "prefix_lists", "policy_based_routing", "access_lists"],
+      "ios_restconf": ["redistribution", "route_maps", "prefix_lists", "policy_based_routing", "access_lists"]
+    }
+  },
+
+  "get_interfaces": {
+    "platform_map_section": "interfaces",
+    "queries": {
+      "ios":          ["interface_status"],
+      "ios_restconf": ["interface_status"]
+    }
+  },
+
+  "ping": {
+    "platform_map_section": "tools.ping",
+    "queries": null,
+    "notes": "Params: device, destination. Optional: source, vrf. All devices use SSH CLI."
+  },
+
+  "traceroute": {
+    "platform_map_section": "tools.traceroute",
+    "queries": null,
+    "notes": "Params: device, destination. Optional: source, vrf. All devices use SSH CLI."
+  },
+
+  "_vrf_note": "All protocol/routing/operational tools accept an optional vrf parameter. If omitted, the global routing table is used. The vrf parameter is available for future L3VPN deployments. IOS asyncssh CLI tools use dual-entry format; c8000v RESTCONF tools use URL paths."
+}

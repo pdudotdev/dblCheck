@@ -1,0 +1,60 @@
+Business Source License 1.1
+
+Use of this software is governed by the Business Source License
+included in the LICENSE file.
+
+Licensor: Mihai Catalin Teodosiu
+Licensed Work: dblCheck - AI Network Intent Validation Framework
+Copyright (c) 2026 Mihai Catalin Teodosiu
+
+Additional Use Grant:
+
+You are granted the right to view, use, modify, and distribute the
+source code of this software for non-commercial purposes only.
+
+Commercial use of this software is strictly prohibited without
+explicit written permission from the Licensor.
+
+Commercial use includes, but is not limited to:
+
+- Selling or licensing the software
+- Offering the software as a paid service (SaaS or hosted service)
+- Using the software in commercial products or enterprise solutions
+- Integrating the software into proprietary systems used for
+  commercial advantage
+- Providing network troubleshooting services powered by this
+  software for paying customers
+
+All copies of the original and modified Licensed Work, and derivative 
+works of the Licensed Work, are subject to this License. 
+This License applies separately for each version of the Licensed Work 
+and the Change Date may vary for each version of the Licensed Work 
+released by Licensor.
+
+Organizations may evaluate the software internally for
+research, testing, or educational purposes.
+
+Use of the software in production environments that support
+commercial operations is considered commercial use and
+requires explicit permission from the Licensor.
+
+Any use of the Licensed Work in violation of this License will 
+automatically terminate your rights under this License for the current 
+and all other versions of the Licensed Work.
+
+Change Date: 2030-01-01
+
+Change License: Apache License 2.0
+
+
+Business Source License 1.1 Terms
+
+The Business Source License (BSL) is a source-available license that
+allows users to read and modify the code while restricting certain
+uses until the Change Date.
+
+On the Change Date specified above, this software will automatically
+be licensed under the Change License.
+
+Full license text:
+https://mariadb.com/bsl11/
