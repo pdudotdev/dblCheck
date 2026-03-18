@@ -30,18 +30,20 @@
 ## 🔭 Overview
 AI-assisted **network intent validation framework** for multi-vendor environments. 
 
-Continuously checks **live network state against design intent** and invokes a Claude agent to diagnose, explain, and document failures and inconsistencies between expected vs. actual state. Therefore, **the key** is building and maintaining an up-to-date network intent schema and **dblCheck** does the rest.
+Continuously checks **live network state against design intent** and invokes a Claude agent to diagnose, explain, and document failures and inconsistencies between expected vs. actual state. 
+
+🔑 Therefore, **the key** is building and maintaining an up-to-date network intent schema - and **dblCheck** does the rest.
 
 ▫️ **Key characteristics:**
-- [x] **Intent-driven validation** — Define expected state in NetBox config contexts, 
-- [x] **AI root-cause diagnosis** — Claude agent investigates failures using 8 read-only MCP tools
-- [x] **Read-only** — Agent queries and investigates devices, never configures
-- [x] **Real-time dashboard** — Live validation results and streamed AI diagnosis
-- [x] **Daemon mode** — Scheduled validation runs, always-on monitoring
-- [x] **HashiCorp Vault** — All secrets (device creds, NetBox token, Jira key etc.) stored in Vault
-- [x] **NetBox** — Network inventory and expected state loaded automatically
-- [x] **Jira** — Network state drift and deviations logged to Jira
-- [x] **350 tests** — 14 suites (12 unit + 2 integration)
+- [x] **Intent-driven validation** - Define expected state in NetBox config contexts, 
+- [x] **AI root-cause diagnosis** - Claude agent investigates failures using 8 read-only MCP tools
+- [x] **Read-only** - Agent queries and investigates devices, never configures
+- [x] **Real-time dashboard** - Live validation results and streamed AI diagnosis
+- [x] **Daemon mode** - Scheduled validation runs, always-on monitoring
+- [x] **HashiCorp Vault** - All secrets (device creds, NetBox token, Jira key etc.) stored in Vault
+- [x] **NetBox** - Network inventory and expected state loaded automatically
+- [x] **Jira** - Network state drift and deviations logged to Jira
+- [x] **350 tests** - 14 suites (12 unit + 2 integration)
 
 ▫️ **Supported models:**
 - [x] Haiku 4.5
@@ -83,7 +85,7 @@ Continuously checks **live network state against design intent** and invokes a C
 - NetBox
 - Jira (optional)
 
-▫️ **Step 1 — Install:**
+▫️ **Step 1 - Install:**
 ```
 git clone https://github.com/pdudotdev/dblCheck /opt/dblcheck
 cd /opt/dblcheck
@@ -91,7 +93,7 @@ python3 -m venv dbl
 dbl/bin/pip install -r requirements.txt
 ```
 
-▫️ **Step 2 — Vault:**
+▫️ **Step 2 - Vault:**
 
 Start Vault (dev mode, lab use):
 ```
@@ -100,13 +102,13 @@ export VAULT_ADDR=http://127.0.0.1:8200
 export VAULT_TOKEN=<your-root-token>
 ```
 
-Or initialize and unseal an existing Vault instance:
+Or initialize and unseal an existing Vault:
 ```
 vault operator init -key-shares=1 -key-threshold=1   # first-time setup
 vault operator unseal                                  # after every restart
 ```
 
-> 🔑 Save the unseal key output from `vault operator init` somewhere safe — you'll need it every time Vault restarts or seals. Without it, a sealed Vault cannot be recovered.
+> 🔑 Save the unseal key output from `vault operator init` somewhere safe - you'll need it every time Vault restarts or seals. Without it, a sealed Vault cannot be recovered.
 
 > ⚠️ dblCheck requires Vault to be **running and unsealed** before any run. If Vault is unavailable, credential lookups fall back to env vars (see `.env.example`).
 
@@ -119,21 +121,21 @@ vault kv put secret/dblcheck/dashboard token=<token>
 # vault kv put secret/dblcheck/anthropic api_key=<key>
 ```
 
-▫️ **Step 3 — Configure `.env`:**
+▫️ **Step 3 - Configure `.env`:**
 - [x] See [**example**](.env.example)
 ```
 cp .env.example .env
 ```
 
-▫️ **Step 4 — Claude auth**:
+▫️ **Step 4 - Claude auth**:
 
-Option A — Anthropic account:
+Option A - Anthropic account:
 ```
 claude login
 ```
-Option B — API key via Vault.
+Option B - API key via Vault.
 
-▫️ **Step 5 — Register the MCP server:**
+▫️ **Step 5 - Register the MCP server:**
 ```
 claude mcp add dblcheck -s user -- /home/<user>/dbl/bin/python server/MCPServer.py
 ```
@@ -160,7 +162,7 @@ dblCheck runs as a **systemd daemon** that validates the network on a schedule a
 ```
 sudo deploy/install.sh
 ```
-Detects your install path and user automatically — no manual editing required.
+Detects your install path and user automatically - no manual editing required.
 
 ▫️ **Manage with:**
 `systemctl start | stop | restart | status dblcheck`
