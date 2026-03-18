@@ -1,14 +1,15 @@
 # ✨ dblCheck
 
-[![Version](https://img.shields.io/badge/version-1.1.0-1a1a2e)](https://github.com/pdudotdev/dblCheck/releases/tag/1.1.0)
-![License](https://img.shields.io/badge/license-BSL%201.1-1a1a2e)
+[![Version](https://img.shields.io/badge/ver.-1.1-1a1a2e)](https://github.com/pdudotdev/dblCheck/releases/tag/1.1.0)
+![License](https://img.shields.io/badge/license-BSL1.1-1a1a2e)
 [![Last Commit](https://img.shields.io/github/last-commit/pdudotdev/dblCheck?color=1a1a2e)](https://github.com/pdudotdev/dblCheck/commits/main/)
 
 | | |
 |---|---|
-| **Platforms** | ![Cisco IOS](https://img.shields.io/badge/Cisco_IOS-0d47a1) ![Cisco IOS-XE](https://img.shields.io/badge/Cisco_IOS--XE-0d47a1) ![Arista EOS](https://img.shields.io/badge/Arista_EOS-0d47a1) ![Juniper JunOS](https://img.shields.io/badge/Juniper_JunOS-0d47a1) ![Aruba AOS](https://img.shields.io/badge/Aruba_AOS-0d47a1) ![MikroTik RouterOS](https://img.shields.io/badge/MikroTik_RouterOS-0d47a1) ![Vyatta VyOS](https://img.shields.io/badge/Vyatta_VyOS-0d47a1) |
-| **Transport** | ![SSH](https://img.shields.io/badge/SSH-1565c0) |
+| **Platforms** | ![Cisco IOS](https://img.shields.io/badge/Cisco_IOS-0d47a1) ![Cisco IOS-XE](https://img.shields.io/badge/Cisco_IOS--XE-0d47a1) ![Arista EOS](https://img.shields.io/badge/Arista_EOS-0d47a1) ![Juniper JunOS](https://img.shields.io/badge/Juniper_JunOS-0d47a1) ![Aruba AOS](https://img.shields.io/badge/Aruba_AOS-0d47a1) ![Vyatta VyOS](https://img.shields.io/badge/Vyatta_VyOS-0d47a1) ![MikroTik RouterOS](https://img.shields.io/badge/MikroTik_RouterOS-0d47a1) |
+| **Transport** | ![SSH](https://img.shields.io/badge/SSH%20CLI-1565c0) |
 | **Integrations** | ![NetBox](https://img.shields.io/badge/NetBox-1976d2) ![HashiCorp Vault](https://img.shields.io/badge/HashiCorp_Vault-1976d2) ![Jira](https://img.shields.io/badge/Jira-1976d2) ![MCP](https://img.shields.io/badge/MCP-1976d2) |
+| **Avg. Cost per Agent Session** | ![Cost](https://img.shields.io/badge/%240.19-1e88e5) |
 
 ## 📖 **Table of Contents**
 - 📜 **dblCheck**
@@ -18,7 +19,7 @@
   - [⚒️ Core Tech Stack](#️-core-tech-stack)
   - [📋 Validation Scope](#-validation-scope)
   - [🛠️ Installation & Usage](#️-installation--usage)
-  - [🦾 Daemon Mode](#-daemon-mode)
+  - [🦾 Operating Modes](#-operating-modes)
   - [🔄 Test Network Topology](#-test-network-topology)
   - [⬆️ Planned Upgrades](#️-planned-upgrades)
   - [♻️ Repository Lifecycle](#️-repository-lifecycle)
@@ -28,17 +29,17 @@
 
 ## 🔭 Overview
 AI-assisted **network intent validation framework** for multi-vendor environments. 
-Continuously checks live network state against design intent and invokes a Claude agent to diagnose, explain, and document failures.
+
+Continuously checks **live network state against design intent** and invokes a Claude agent to diagnose, explain, and document failures and inconsistencies between expected vs. actual state. Therefore, **the key** is building and maintaining an up-to-date network intent schema and **dblCheck** does the rest.
 
 ▫️ **Key characteristics:**
-- [x] **Intent-driven validation** — Define expected state in NetBox config contexts, dblCheck does the rest
+- [x] **Intent-driven validation** — Define expected state in NetBox config contexts, 
 - [x] **AI root-cause diagnosis** — Claude agent investigates failures using 8 read-only MCP tools
 - [x] **Read-only** — Agent queries and investigates devices, never configures
 - [x] **Real-time dashboard** — Live validation results and streamed AI diagnosis
 - [x] **Daemon mode** — Scheduled validation runs, always-on monitoring
 - [x] **HashiCorp Vault** — All secrets (device creds, NetBox token, Jira key etc.) stored in Vault
-- [x] **NetBox** — Device inventory loaded automatically
-- [x] **CI/CD ready** — JSON output mode + exit codes
+- [x] **NetBox** — Network inventory and expected state loaded automatically
 - [x] **350 tests** — 14 suites (12 unit + 2 integration)
 
 ▫️ **Supported models:**
@@ -136,7 +137,11 @@ Option B — API key via Vault.
 claude mcp add dblcheck -s user -- /home/<user>/dbl/bin/python server/MCPServer.py
 ```
 
-▫️ **Step 6 — Run:**
+## 🦾 Operating Modes
+
+### Interactive Mode
+
+- [x] **Run:**
 ```
 dbl/bin/python cli/dblcheck.py                          # full validation
 dbl/bin/python cli/dblcheck.py --device C1C             # single device
@@ -146,7 +151,7 @@ dbl/bin/python cli/dblcheck.py --format json            # JSON output for CI/CD
 dbl/bin/python cli/dblcheck.py --headless               # daemon / no terminal output
 ```
 
-## 🦾 Daemon Mode
+### Daemon Mode
 
 dblCheck runs as a **systemd daemon** that validates the network on a schedule and serves a live dashboard.
 
@@ -184,6 +189,7 @@ Shows live validation results and streams AI diagnosis output when failures are 
 - [x] 1 x Aruba AOS-CX node
 - [x] OSPF multi-area, EIGRP, BGP
 - [x] Device credentials stored in **Vault**
+- [x] Network inventory and state in **NetBox**
 
 ## ⬆️ Planned Upgrades
 - [ ] New protocols supported
