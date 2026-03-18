@@ -6,7 +6,7 @@
 
 | | |
 |---|---|
-| **Platforms** | ![Cisco IOS](https://img.shields.io/badge/Cisco_IOS-0d47a1) ![Cisco IOS-XE](https://img.shields.io/badge/Cisco_IOS--XE-0d47a1) ![Arista EOS](https://img.shields.io/badge/Arista_EOS-0d47a1) ![Juniper JunOS](https://img.shields.io/badge/Juniper_JunOS-0d47a1) ![Aruba AOS](https://img.shields.io/badge/Aruba_AOS-0d47a1) ![Vyatta VyOS](https://img.shields.io/badge/Vyatta_VyOS-0d47a1) ![MikroTik RouterOS](https://img.shields.io/badge/MikroTik_RouterOS-0d47a1) |
+| **Platforms** | ![Cisco IOS](https://img.shields.io/badge/Cisco_IOS-0d47a1) ![Cisco IOS-XE](https://img.shields.io/badge/Cisco_IOS--XE-0d47a1) ![Arista EOS](https://img.shields.io/badge/Arista_EOS-0d47a1) ![Juniper JunOS](https://img.shields.io/badge/Juniper_JunOS-0d47a1) ![Aruba AOS](https://img.shields.io/badge/Aruba_AOS-0d47a1) ![Vyatta VyOS](https://img.shields.io/badge/Vyatta_VyOS-0d47a1) ![MikroTik RouterOS](https://img.shields.io/badge/MikroTik_RouterOS-0d47a1) ![FRR](https://img.shields.io/badge/FRR-0d47a1) |
 | **Transport** | ![SSH](https://img.shields.io/badge/SSH%20CLI-1565c0) |
 | **Integrations** | ![NetBox](https://img.shields.io/badge/NetBox-1976d2) ![HashiCorp Vault](https://img.shields.io/badge/HashiCorp_Vault-1976d2) ![Jira](https://img.shields.io/badge/Jira-1976d2) ![MCP](https://img.shields.io/badge/MCP-1976d2) |
 | **Avg. Cost per Agent Session** | ![Cost](https://img.shields.io/badge/%240.19-1e88e5) |
@@ -15,7 +15,7 @@
 - 📜 **dblCheck**
   - [🔭 Overview](#-overview)
   - [🍀 Here's a Quick Demo](#-heres-a-quick-demo)
-  - [⭐ What's New in v1.0](#-whats-new-in-v10)
+  - [⭐ What's New in v1.1](#-whats-new-in-v11)
   - [⚒️ Core Tech Stack](#️-core-tech-stack)
   - [📋 Validation Scope](#-validation-scope)
   - [🛠️ Installation & Usage](#️-installation--usage)
@@ -40,6 +40,7 @@ Continuously checks **live network state against design intent** and invokes a C
 - [x] **Daemon mode** — Scheduled validation runs, always-on monitoring
 - [x] **HashiCorp Vault** — All secrets (device creds, NetBox token, Jira key etc.) stored in Vault
 - [x] **NetBox** — Network inventory and expected state loaded automatically
+- [x] **Jira** — Network state drift and deviations logged to Jira
 - [x] **350 tests** — 14 suites (12 unit + 2 integration)
 
 ▫️ **Supported models:**
@@ -50,7 +51,7 @@ Continuously checks **live network state against design intent** and invokes a C
 ## 🍀 Here's a Quick Demo
 - [x] *Demo video coming soon...*
 
-## ⭐ What's New in v1.0
+## ⭐ What's New in v1.1
 - [x] See [**CHANGELOG.md**](CHANGELOG.md)
  
 ## ⚒️ Core Tech Stack
