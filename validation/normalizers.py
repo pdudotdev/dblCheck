@@ -27,7 +27,7 @@ def _interfaces_ios(raw: str) -> dict[str, str]:
     out = {}
     for line in raw.splitlines():
         parts = line.split()
-        if len(parts) >= 6 and parts[0][0].isalpha():
+        if len(parts) >= 6 and parts[0][0].isalpha() and parts[-1].lower() in ("up", "down"):
             out[parts[0]] = f"{parts[-2].lower()}/{parts[-1].lower()}"
     return out
 

@@ -1,5 +1,24 @@
 # Changelog
 
+## [1.1.0] — 2026-03-18
+
+### Test Suite
+
+- 350 tests across 14 suites (12 unit, 2 integration) with zero silent passes
+- Unit tests: normalizers (6 vendors × 4 protocols), derivation, evaluator, input models, platform map, collector, report formatting, tool layer, helpers
+- Integration tests: platform coverage matrix (generates coverage report), end-to-end pipeline (derive → evaluate → report)
+- Test runner (`testing/run_tests.sh`) with stable suite IDs and per-suite pass/fail tracking
+- `testing/conftest.py` injects mock modules to prevent NetBox/Vault calls during testing
+
+### Documentation
+
+- `metadata/about/guardrails.md` — three-tier safety documentation (code-enforced, config-enforced, behavioral)
+- `metadata/vault/vault_setup.md` — complete Vault setup guide with production initialization and troubleshooting
+- `metadata/netbox/netbox_setup.md` — complete NetBox setup guide with populate script reference and device table
+- `metadata/about/agent_prompt.md` — agent invocation architecture (prompt assembly, CLI flags, timeout, output handling)
+
+---
+
 ## [1.0.0] — 2026-03-18
 
 ### Intent-Driven Validation
