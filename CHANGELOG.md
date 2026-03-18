@@ -4,7 +4,7 @@
 
 ### Test Suite
 
-- 409 tests across 14 suites (12 unit, 2 integration) with zero silent passes
+- 447 tests across 14 suites (12 unit, 2 integration) with zero silent passes
 - Unit tests: normalizers (6 vendors × 4 protocols), derivation, evaluator, input models, platform map, collector, report formatting, tool layer, helpers
 - Integration tests: platform coverage matrix (generates coverage report), end-to-end pipeline (derive → evaluate → report)
 - Test runner (`testing/run_tests.sh`) with stable suite IDs and per-suite pass/fail tracking

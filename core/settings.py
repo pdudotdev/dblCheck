@@ -11,10 +11,6 @@ PASSWORD = get_secret("dblcheck/router", "password", fallback_env="ROUTER_PASSWO
 
 # Credentials validated at entry points (cli/dblcheck.py, server/MCPServer.py) — not at import time.
 
-# SSH security settings — defaults are lab-safe; set to 'true' in .env for production.
-# Note: libscrapli (scrapli2) disables strict host key checking by default, matching this setting.
-SSH_STRICT_KEY = os.getenv("SSH_STRICT_HOST_KEY", "false").lower() == "true"
-
 # Operation timeout (seconds) — mapped to SessionOptions(operation_timeout_s=SSH_TIMEOUT_OPS).
 # Transport-level timeout is handled internally by libscrapli.
 SSH_TIMEOUT_OPS = 30   # Command execution — kept high for slow commands

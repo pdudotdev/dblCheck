@@ -95,6 +95,7 @@ def test_eigrp_non_string_raw():
 
 def test_eigrp_header_lines_skipped():
     result = normalize_eigrp_neighbors({"raw": EIGRP_MULTI, "cli_style": "ios"})
+    assert len(result) == 3
     for n in result:
         assert n["neighbor_ip"].count(".") == 3
         assert all(part.isdigit() for part in n["neighbor_ip"].split("."))

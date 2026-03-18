@@ -230,7 +230,7 @@ def get_action(device: dict, category: str, query: str, vrf: str | None = None):
     Returns a plain CLI string or dual-entry dict (resolved to a string via VRF logic).
 
     Args:
-        device:   Inventory entry dict (must have 'cli_style' and 'transport' keys).
+        device:   Inventory entry dict (must have 'cli_style' key).
         category: Top-level PLATFORM_MAP section (e.g. 'ospf', 'interfaces').
         query:    Sub-key within that section (e.g. 'neighbors', 'interface_status').
         vrf:      Optional VRF name. If None, global routing table is used.
@@ -240,8 +240,7 @@ def get_action(device: dict, category: str, query: str, vrf: str | None = None):
     """
     vrf_name = vrf or device.get("vrf")
 
-    override_key = f"{device['cli_style']}_{device['transport']}"
-    map_entry = PLATFORM_MAP.get(override_key) or PLATFORM_MAP.get(device["cli_style"])
+    map_entry = PLATFORM_MAP.get(device["cli_style"])
     if not map_entry:
         raise KeyError(f"No platform map entry for cli_style={device['cli_style']!r}")
 

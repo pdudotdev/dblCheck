@@ -19,9 +19,11 @@ def _get_mock_execute():
 
 def test_ospf_known_device_no_error():
     mock_execute = _get_mock_execute()
+    mock_execute.reset_mock()
     mock_execute.return_value = {"raw": "output", "cli_style": "ios", "device": "D1C"}
     result = asyncio.run(get_ospf(OspfQuery(device="D1C", query="neighbors")))
     assert "error" not in result
+    mock_execute.assert_called_once_with("D1C", "show ip ospf neighbor")
 
 
 def test_ospf_known_device_returns_raw():
@@ -39,18 +41,22 @@ def test_ospf_unknown_device_returns_error():
 
 def test_ospf_detail_known_device():
     mock_execute = _get_mock_execute()
+    mock_execute.reset_mock()
     mock_execute.return_value = {"raw": "ospf detail", "cli_style": "ios", "device": "D1C"}
     result = asyncio.run(get_ospf(OspfQuery(device="D1C", query="details")))
     assert "error" not in result
+    mock_execute.assert_called_once_with("D1C", "show ip ospf")
 
 
 # ── get_bgp ───────────────────────────────────────────────────────────────────
 
 def test_bgp_known_device_no_error():
     mock_execute = _get_mock_execute()
+    mock_execute.reset_mock()
     mock_execute.return_value = {"raw": "bgp output", "cli_style": "ios", "device": "E1C"}
     result = asyncio.run(get_bgp(BgpQuery(device="E1C", query="summary")))
     assert "error" not in result
+    mock_execute.assert_called_once_with("E1C", "show ip bgp vpnv4 vrf VRF1 summary")
 
 
 def test_bgp_unknown_device_returns_error():
@@ -68,9 +74,11 @@ def test_bgp_device_name_in_error():
 
 def test_eigrp_ios_device_no_error():
     mock_execute = _get_mock_execute()
+    mock_execute.reset_mock()
     mock_execute.return_value = {"raw": "eigrp output", "cli_style": "ios", "device": "D1C"}
     result = asyncio.run(get_eigrp(EigrpQuery(device="D1C", query="neighbors")))
     assert "error" not in result
+    mock_execute.assert_called_once_with("D1C", "show ip eigrp vrf VRF1 neighbors")
 
 
 def test_eigrp_unknown_device_returns_error():
@@ -102,9 +110,11 @@ def test_eigrp_routeros_device_not_supported():
 
 def test_interfaces_known_device_no_error():
     mock_execute = _get_mock_execute()
+    mock_execute.reset_mock()
     mock_execute.return_value = {"raw": "intf output", "cli_style": "ios", "device": "D1C"}
     result = asyncio.run(get_interfaces(InterfacesQuery(device="D1C")))
     assert "error" not in result
+    mock_execute.assert_called_once_with("D1C", "show ip interface brief")
 
 
 def test_interfaces_unknown_device_returns_error():
@@ -115,6 +125,7 @@ def test_interfaces_unknown_device_returns_error():
 
 def test_interfaces_routeros_device():
     mock_execute = _get_mock_execute()
+    mock_execute.reset_mock()
     mock_execute.return_value = {
         "raw": " 0 R ether1 ether 1500",
         "cli_style": "routeros",
@@ -122,3 +133,4 @@ def test_interfaces_routeros_device():
     }
     result = asyncio.run(get_interfaces(InterfacesQuery(device="A1M")))
     assert "error" not in result
+    mock_execute.assert_called_once_with("A1M", "/interface print brief without-paging")

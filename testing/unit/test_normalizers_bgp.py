@@ -92,6 +92,7 @@ def test_ios_bgp_multiple_peers():
 
 def test_ios_bgp_header_skipped():
     result = normalize_bgp_summary({"raw": IOS_BGP_SUMMARY, "cli_style": "ios"})
+    assert len(result) == 3
     assert all(n["neighbor_ip"].count(".") == 3 for n in result)
 
 
@@ -200,6 +201,14 @@ def test_vyos_bgp_idle():
     result = normalize_bgp_summary({"raw": VYOS_BGP_SUMMARY, "cli_style": "vyos"})
     n = next(n for n in result if n["neighbor_ip"] == "10.0.0.1")
     assert n["state"] == "Idle"
+
+
+# ── Empty-output tests ────────────────────────────────────────────────────────
+
+@pytest.mark.parametrize("cli_style", ["ios", "eos", "junos", "aos", "routeros", "vyos"])
+def test_bgp_summary_empty_raw(cli_style):
+    result = normalize_bgp_summary({"raw": "", "cli_style": cli_style})
+    assert result == []
 
 
 # ── _normalize_bgp_state parametrize ──────────────────────────────────────────

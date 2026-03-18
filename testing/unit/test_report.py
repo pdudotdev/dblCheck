@@ -90,13 +90,12 @@ def test_run_dict_assertion_fields():
     results = [_make_fail()]
     d = format_run_dict(results, 1.0)
     a = d["assertions"][0]
-    assert "type" in a
-    assert "device" in a
-    assert "description" in a
-    assert "result" in a
-    assert "expected" in a
-    assert "actual" in a
+    assert a["type"] == "interface_up"
+    assert a["device"] == "R2"
     assert a["result"] == "fail"
+    assert a["expected"] == "up/up"
+    assert a["actual"] == "down/down"
+    assert "description" in a
 
 
 def test_run_dict_result_values():
@@ -148,6 +147,8 @@ def test_format_text_summary_counts():
     text = format_text(results, 1.0, color=False)
     assert "Total: 3" in text
     assert "Passed: 1" in text
+    assert "Failed: 1" in text
+    assert "Errors: 1" in text
 
 
 def test_format_text_device_table_present():
@@ -159,5 +160,14 @@ def test_format_text_device_table_present():
 def test_format_text_duration():
     text = format_text([_make_pass()], 3.5, color=False)
     assert "3.5s" in text
+
+
+def test_format_text_empty_results():
+    # format_text([]) must not raise; no per-device table rendered
+    text = format_text([], 0.0, color=False)
+    assert "dblCheck Validation Report" in text
+    assert "Total: 0" in text
+    assert "[FAIL]" not in text
+    assert "[ERR ]" not in text
 
 

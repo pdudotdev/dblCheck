@@ -32,7 +32,6 @@ sys.modules["core.vault"] = _vault_mod
 _settings_mod = ModuleType("core.settings")
 _settings_mod.USERNAME = "test"
 _settings_mod.PASSWORD = "test"
-_settings_mod.SSH_STRICT_KEY = False
 _settings_mod.SSH_TIMEOUT_OPS = 30
 _settings_mod.SSH_RETRIES = 1
 _settings_mod.SSH_RETRY_DELAY = 2
@@ -83,7 +82,7 @@ MOCK_INTENT: dict = json.loads(_INTENT_JSON.read_text())
 
 @pytest.fixture
 def mock_devices() -> dict:
-    """Device inventory from lab_configs/NETWORK.json."""
+    """Device inventory from legacy/NETWORK.json."""
     return dict(MOCK_DEVICES)
 
 

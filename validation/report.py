@@ -1,5 +1,4 @@
-"""Format validation results as human-readable text or machine-parseable JSON."""
-import json
+"""Format validation results as human-readable text."""
 from datetime import datetime, timezone
 
 from validation.assertions import AssertionResult, EvaluatedAssertion

@@ -89,8 +89,8 @@ def load_intent() -> dict:
         intent = _netbox_intent()
         if intent:
             return intent
-    except Exception:
-        pass
+    except Exception as exc:
+        log.warning("Intent loading failed: %s", exc)
     print(
         "Error: Intent not available — NetBox unreachable or no config contexts found.",
         file=sys.stderr,
@@ -490,7 +490,10 @@ def _diagnose(failures: list, session_path: Path, headless: bool = False) -> Non
             try:
                 os.killpg(proc.pid, signal.SIGKILL)
             except OSError:
-                proc.kill()
+                try:
+                    proc.kill()
+                except OSError:
+                    pass
 
         timer = threading.Timer(300, _kill_after_timeout)
         timer.daemon = True
@@ -581,7 +584,10 @@ def _diagnose(failures: list, session_path: Path, headless: bool = False) -> Non
                     os.killpg(proc.pid, signal.SIGKILL)
                 except OSError:
                     pass
-                proc.wait()
+                try:
+                    proc.wait(timeout=10)
+                except subprocess.TimeoutExpired:
+                    log.warning("subprocess did not exit after SIGKILL — possible kernel hang")
 
         if not headless:
             print()

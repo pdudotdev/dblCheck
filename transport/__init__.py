@@ -14,10 +14,9 @@ async def execute_command(device_name: str, cmd_or_action,
     if not device:
         return {"error": "Unknown device"}
 
-    cli_style     = device["cli_style"]
-    dev_transport = device["transport"]
+    cli_style = device["cli_style"]
 
-    log.info("dispatch: %s (transport: %s)", device_name, dev_transport)
+    log.info("dispatch: %s", device_name)
 
     command_used = None
 
@@ -29,14 +28,8 @@ async def execute_command(device_name: str, cmd_or_action,
         log.error("command failed: %s — %s", device_name, e)
         return {"device": device_name, "cli_style": cli_style, "error": str(e)}
 
-    # Audit log: record every command executed on a device
-    log.debug("audit: device=%s transport=%s command=%s",
-             device_name, dev_transport,
-             command_used if command_used else "(unknown)")
-
-    # Log transport-level errors (returned as dicts, not exceptions)
-    if isinstance(raw_output, dict) and "error" in raw_output:
-        log.error("transport error: %s — %s", device_name, raw_output["error"])
+    log.debug("audit: device=%s command=%s", device_name,
+              command_used if command_used else "(unknown)")
 
     result = {
         "device":    device_name,

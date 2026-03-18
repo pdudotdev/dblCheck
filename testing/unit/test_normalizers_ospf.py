@@ -152,6 +152,7 @@ def test_ios_ospf_neighbor_count():
 
 def test_ios_ospf_neighbor_header_skipped():
     result = normalize_ospf_neighbors({"raw": IOS_OSPF_NBR, "cli_style": "ios"})
+    assert len(result) == 3
     assert all(_is_ip(n["neighbor_id"]) for n in result)
 
 
@@ -191,6 +192,7 @@ def test_junos_ospf_neighbor_id():
 
 def test_junos_ospf_unit_suffix_stripped():
     result = normalize_ospf_neighbors({"raw": JUNOS_OSPF_NBR, "cli_style": "junos"})
+    assert len(result) == 3
     for n in result:
         assert "." not in n["interface"]
 
@@ -251,6 +253,7 @@ def test_vyos_ospf_neighbor_full():
 
 def test_vyos_ospf_interface_colon_stripped():
     result = normalize_ospf_neighbors({"raw": VYOS_OSPF_NBR, "cli_style": "vyos"})
+    assert len(result) == 3
     for n in result:
         assert ":" not in n["interface"]
 
@@ -366,6 +369,132 @@ def test_vyos_ospf_detail_router_id():
 def test_vyos_ospf_detail_stub_area():
     result = normalize_ospf_details({"raw": VYOS_OSPF_DETAIL, "cli_style": "vyos"})
     assert result["areas"].get("1") == "stub"
+
+
+# ── Empty-output tests ────────────────────────────────────────────────────────
+
+@pytest.mark.parametrize("cli_style", ["ios", "eos", "junos", "aos", "routeros", "vyos"])
+def test_ospf_neighbors_empty_raw(cli_style):
+    result = normalize_ospf_neighbors({"raw": "", "cli_style": cli_style})
+    assert result == []
+
+
+@pytest.mark.parametrize("cli_style", ["ios", "eos", "junos", "aos", "routeros", "vyos"])
+def test_ospf_details_empty_raw(cli_style):
+    result = normalize_ospf_details({"raw": "", "cli_style": cli_style})
+    assert result["router_id"] == ""
+    assert result["areas"] == {}
+    assert result["default_originate"] is False
+
+
+# ── NSSA area-type fixtures ────────────────────────────────────────────────────
+
+JUNOS_OSPF_DETAIL_NSSA = """\
+ Instance: master
+   Router ID: 22.22.22.11
+   Area: 0.0.0.0
+     Stub type: Not Stub
+   Area: 0.0.0.2
+     Stub type: NSSA
+"""
+
+AOS_OSPF_DETAIL_NSSA = """\
+ OSPF Process 1 with Router ID: 11.11.11.22
+ Area  : 0.0.0.0
+   Area type : normal
+ Area  : 0.0.0.2
+   Area Type : NSSA
+"""
+
+ROS_OSPF_AREA_CFG_NSSA = """\
+ 0 name="area2" area-id=0.0.0.2 type=nssa
+ 1 name="backbone" area-id=0.0.0.0 type=default
+"""
+
+VYOS_OSPF_DETAIL_NSSA = """\
+ OSPF Routing Process, Router ID: 10.9.9.1
+ Area ID: 0.0.0.0 [Backbone]
+ Area ID: 0.0.0.2 [NSSA]
+"""
+
+
+# ── NSSA area-type tests ───────────────────────────────────────────────────────
+
+def test_junos_ospf_detail_nssa_area():
+    result = normalize_ospf_details({"raw": JUNOS_OSPF_DETAIL_NSSA, "cli_style": "junos"})
+    assert result["areas"].get("2") == "nssa"
+
+
+def test_aos_ospf_detail_nssa_area():
+    result = normalize_ospf_details({"raw": AOS_OSPF_DETAIL_NSSA, "cli_style": "aos"})
+    assert result["areas"].get("2") == "nssa"
+
+
+def test_routeros_ospf_detail_nssa_area():
+    result = normalize_ospf_details(
+        {"raw": ROS_OSPF_DETAIL, "cli_style": "routeros"},
+        config_raw=ROS_OSPF_AREA_CFG_NSSA,
+    )
+    assert result["areas"].get("2") == "nssa"
+
+
+def test_vyos_ospf_detail_nssa_area():
+    result = normalize_ospf_details({"raw": VYOS_OSPF_DETAIL_NSSA, "cli_style": "vyos"})
+    assert result["areas"].get("2") == "nssa"
+
+
+# ── Default-originate tests for EOS / JunOS / AOS / VyOS ──────────────────────
+
+def test_eos_ospf_detail_default_originate():
+    result = normalize_ospf_details(
+        {"raw": EOS_OSPF_DETAIL, "cli_style": "eos"},
+        config_raw="default-information originate always",
+    )
+    assert result["default_originate"] is True
+
+
+def test_eos_ospf_detail_no_default_originate():
+    result = normalize_ospf_details({"raw": EOS_OSPF_DETAIL, "cli_style": "eos"})
+    assert result["default_originate"] is False
+
+
+def test_junos_ospf_detail_default_originate():
+    result = normalize_ospf_details(
+        {"raw": JUNOS_OSPF_DETAIL, "cli_style": "junos"},
+        config_raw="generate-default { policy default-route; }",
+    )
+    assert result["default_originate"] is True
+
+
+def test_junos_ospf_detail_no_default_originate():
+    result = normalize_ospf_details({"raw": JUNOS_OSPF_DETAIL, "cli_style": "junos"})
+    assert result["default_originate"] is False
+
+
+def test_aos_ospf_detail_default_originate():
+    result = normalize_ospf_details(
+        {"raw": AOS_OSPF_DETAIL, "cli_style": "aos"},
+        config_raw="default-information originate",
+    )
+    assert result["default_originate"] is True
+
+
+def test_aos_ospf_detail_no_default_originate():
+    result = normalize_ospf_details({"raw": AOS_OSPF_DETAIL, "cli_style": "aos"})
+    assert result["default_originate"] is False
+
+
+def test_vyos_ospf_detail_default_originate():
+    result = normalize_ospf_details(
+        {"raw": VYOS_OSPF_DETAIL, "cli_style": "vyos"},
+        config_raw="set protocols ospf default-information originate",
+    )
+    assert result["default_originate"] is True
+
+
+def test_vyos_ospf_detail_no_default_originate():
+    result = normalize_ospf_details({"raw": VYOS_OSPF_DETAIL, "cli_style": "vyos"})
+    assert result["default_originate"] is False
 
 
 # ── _normalize_ospf_state parametrize ─────────────────────────────────────────

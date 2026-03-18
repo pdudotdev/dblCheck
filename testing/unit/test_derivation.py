@@ -11,9 +11,9 @@ from validation.derivation import derive_assertions
 _INTENT = json.loads((Path(__file__).parent.parent.parent / "legacy" / "INTENT.json").read_text())
 
 
-def test_derive_total_count_reasonable():
+def test_derive_total_count():
     result = derive_assertions(_INTENT)
-    assert len(result) >= 50
+    assert len(result) == 131
 
 
 def test_derive_contains_interface_type():
