@@ -25,7 +25,7 @@ from core.vault import get_secret
 
 load_dotenv()
 
-NETWORK_JSON = os.path.join(os.path.dirname(__file__), "NETWORK.json")
+NETWORK_JSON = os.path.join(os.path.dirname(os.path.dirname(__file__)), "legacy", "NETWORK.json")
 INTENT_JSON  = os.path.join(os.path.dirname(os.path.dirname(__file__)), "intent", "legacy", "INTENT.json")
 
 MANUFACTURER_MAP = {

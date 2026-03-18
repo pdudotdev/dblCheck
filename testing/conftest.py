@@ -51,7 +51,7 @@ _jira_mod.add_comment = AsyncMock(return_value=None)
 sys.modules["core.jira_client"] = _jira_mod
 
 # ── Step 2: Load NETWORK.json as mock device inventory ────────────────────────
-_NETWORK_JSON = _ROOT / "lab_configs" / "NETWORK.json"
+_NETWORK_JSON = _ROOT / "legacy" / "NETWORK.json"
 MOCK_DEVICES: dict = json.loads(_NETWORK_JSON.read_text())
 
 # core.netbox — prevent NetBox connections

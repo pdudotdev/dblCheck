@@ -3,12 +3,7 @@
 
 Usage:
     python cli/dblcheck.py                          # full validation
-    python cli/dblcheck.py --device C1C             # single device
-    python cli/dblcheck.py --device C1C --device E1C  # multiple devices
-    python cli/dblcheck.py --protocol ospf          # OSPF assertions only
-    python cli/dblcheck.py --format json            # JSON output for CI/CD
     python cli/dblcheck.py --no-diagnose            # skip AI diagnosis on failures
-    python cli/dblcheck.py --headless               # suppress terminal output (daemon mode)
 
 Exit codes:
     0  All assertions passed
@@ -44,7 +39,7 @@ from validation.assertions import AssertionResult
 from validation.derivation import derive_assertions
 from validation.collector  import collect_state
 from validation.evaluator  import evaluate
-from validation.report     import format_text, format_json, format_run_dict
+from validation.report     import format_text, format_run_dict
 
 # ── Data directory paths ──────────────────────────────────────────────────────
 PROJECT_DIR  = _PROJECT_ROOT
@@ -208,20 +203,6 @@ def _build_parser() -> argparse.ArgumentParser:
         description="dblCheck: validate live network state against network intent",
     )
     p.add_argument(
-        "--device", action="append", default=[],
-        metavar="NAME",
-        help="Limit to specific device (repeatable, e.g. --device C1C --device E1C)",
-    )
-    p.add_argument(
-        "--protocol", choices=["ospf", "bgp", "interface", "eigrp"],
-        help="Limit to a specific protocol category",
-    )
-    p.add_argument(
-        "--format", choices=["text", "json"], default="text",
-        dest="output_format",
-        help="Output format (default: text)",
-    )
-    p.add_argument(
         "--no-diagnose", action="store_true",
         help="Skip AI-assisted diagnosis of failures",
     )
@@ -294,17 +275,11 @@ async def _run(args) -> int:
         })
 
         intent = load_intent()
-        device_filter = {d.upper() for d in args.device} if args.device else None
-
-        assertions = derive_assertions(
-            intent,
-            device_filter=device_filter,
-            protocol_filter=args.protocol,
-        )
+        assertions = derive_assertions(intent)
 
         if not assertions:
             if not args.headless:
-                print("No assertions match the given filters.", file=sys.stderr)
+                print("No assertions derived from intent.", file=sys.stderr)
             # Preserve last_run metadata so dashboard late-joiners still see previous results
             try:
                 existing = json.loads(STATE_FILE.read_text())
@@ -329,10 +304,7 @@ async def _run(args) -> int:
 
         # Terminal output (unless headless)
         if not args.headless:
-            if args.output_format == "json":
-                print(format_json(results, duration))
-            else:
-                print(format_text(results, duration, color=_USE_COLOR))
+            print(format_text(results, duration, color=_USE_COLOR))
 
         failures = [r for r in results if r.result != AssertionResult.PASS]
 

@@ -5,37 +5,20 @@ No devices are contacted here — this is pure intent reading.
 from validation.assertions import Assertion, AssertionType
 
 
-def derive_assertions(
-    intent: dict,
-    device_filter: set[str] | None = None,
-    protocol_filter: str | None = None,
-) -> list[Assertion]:
+def derive_assertions(intent: dict) -> list[Assertion]:
     """Derive all validation assertions from an intent dict.
 
     Args:
-        intent:          Parsed intent dict (from NetBox config contexts).
-        device_filter:   If set, only emit assertions for these device names.
-        protocol_filter: If set, only emit assertions for this protocol
-                         ("interface", "ospf", or "bgp").
+        intent: Parsed intent dict (from NetBox config contexts).
     """
     routers = intent.get("routers", {})
     assertions: list[Assertion] = []
 
     for device, cfg in routers.items():
-        if device_filter and device not in device_filter:
-            continue
-
-        if not protocol_filter or protocol_filter == "interface":
-            assertions.extend(_derive_interfaces(device, cfg))
-
-        if not protocol_filter or protocol_filter == "ospf":
-            assertions.extend(_derive_ospf(device, cfg, routers))
-
-        if not protocol_filter or protocol_filter == "bgp":
-            assertions.extend(_derive_bgp(device, cfg))
-
-        if not protocol_filter or protocol_filter == "eigrp":
-            assertions.extend(_derive_eigrp(device, cfg, routers))
+        assertions.extend(_derive_interfaces(device, cfg))
+        assertions.extend(_derive_ospf(device, cfg, routers))
+        assertions.extend(_derive_bgp(device, cfg))
+        assertions.extend(_derive_eigrp(device, cfg, routers))
 
     return assertions
 

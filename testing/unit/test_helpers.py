@@ -163,37 +163,6 @@ def test_build_parser_returns_parser():
     assert isinstance(p, argparse.ArgumentParser)
 
 
-def test_build_parser_default_format():
-    p = _build_parser()
-    args = p.parse_args([])
-    assert args.output_format == "text"
-
-
-def test_build_parser_json_format():
-    p = _build_parser()
-    args = p.parse_args(["--format", "json"])
-    assert args.output_format == "json"
-
-
-def test_build_parser_single_device():
-    p = _build_parser()
-    args = p.parse_args(["--device", "D1C"])
-    assert "D1C" in args.device
-
-
-def test_build_parser_multiple_devices():
-    p = _build_parser()
-    args = p.parse_args(["--device", "D1C", "--device", "E1C"])
-    assert "D1C" in args.device
-    assert "E1C" in args.device
-
-
-def test_build_parser_protocol_filter():
-    p = _build_parser()
-    args = p.parse_args(["--protocol", "ospf"])
-    assert args.protocol == "ospf"
-
-
 def test_build_parser_no_diagnose():
     p = _build_parser()
     args = p.parse_args(["--no-diagnose"])
@@ -212,7 +181,3 @@ def test_build_parser_default_no_diagnose_false():
     assert args.no_diagnose is False
 
 
-def test_build_parser_invalid_format_raises():
-    p = _build_parser()
-    with pytest.raises(SystemExit):
-        p.parse_args(["--format", "yaml"])

@@ -135,6 +135,3 @@ def format_run_dict(results: list[EvaluatedAssertion], duration_sec: float) -> d
     }
 
 
-def format_json(results: list[EvaluatedAssertion], duration_sec: float) -> str:
-    """Machine-parseable JSON report for CI/CD integration."""
-    return json.dumps(format_run_dict(results, duration_sec), indent=2)

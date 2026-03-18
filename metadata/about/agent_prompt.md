@@ -62,11 +62,9 @@ For each one, explain the root cause and the evidence that supports it.
 Do not suggest configuration changes.
 ```
 
-### Part 3 — Output format instruction (mode-dependent)
+### Part 3 — Output format instruction (always present)
 
-**Interactive mode** (default): plain text for terminal — no markdown, no asterisks, no tables. Labels like `Root cause:` and `Evidence:`. Continuation lines indented 2 spaces.
-
-**Headless mode** (`--headless`): Markdown format with `##` headings per failure, `**bold**` labels, inline code for interface names and IPs, code blocks for raw device output excerpts.
+Plain text for terminal — no markdown, no asterisks, no tables. Labels like `Root cause:` and `Evidence:`. Continuation lines indented 2 spaces.
 
 ### Part 4 — Anti-preamble instruction (always present)
 
@@ -89,11 +87,11 @@ If the timer fires, the partial output collected so far is still written to the 
 
 ## Output Handling
 
-The subprocess stdout is an NDJSON stream. Each line is a JSON event object. dblCheck handles two modes:
+The subprocess stdout is an NDJSON stream. Each line is a JSON event object. dblCheck handles two output paths:
 
-**Interactive mode**: Events are parsed in real-time. `content_block_delta` events with text deltas are printed to the terminal as they arrive. Tool call events (`content_block_start` with `tool_use` type) print a summary line showing the tool name and target device. The full stream is simultaneously written to the session file (`data/.session-<ts>.ndjson`) for the dashboard.
+**Interactive** (default): Events are parsed in real-time. `content_block_delta` events with text deltas are printed to the terminal as they arrive. Tool call events (`content_block_start` with `tool_use` type) print a summary line showing the tool name and target device. The full stream is simultaneously written to the session file (`data/.session-<ts>.ndjson`) for the dashboard.
 
-**Headless mode**: All events are written to the session file only. No terminal output. The dashboard reads the file via its WebSocket bridge.
+**Headless** (daemon mode): All events are written to the session file only. No terminal output. The dashboard reads the file via its WebSocket bridge.
 
 After the subprocess exits, `_extract_diagnosis_text()` re-reads the session file and extracts all text content into a plain string for Jira comments and the stored run dict.
 

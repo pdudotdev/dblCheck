@@ -43,7 +43,7 @@ Continuously checks **live network state against design intent** and invokes a C
 - [x] **HashiCorp Vault** - All secrets (device creds, NetBox token, Jira key etc.) stored in Vault
 - [x] **NetBox** - Network inventory and expected state loaded automatically
 - [x] **Jira** - Network state drift and deviations logged to Jira
-- [x] **350 tests** - 14 suites (12 unit + 2 integration)
+- [x] **409 tests** - 14 suites (12 unit + 2 integration)
 
 ▫️ **Supported models:**
 - [x] Haiku 4.5
@@ -153,11 +153,7 @@ claude mcp add dblcheck -s user -- /home/<user>/dbl/bin/python server/MCPServer.
 - [x] **Run:**
 ```
 dbl/bin/python cli/dblcheck.py                          # full validation
-dbl/bin/python cli/dblcheck.py --device C1C             # single device
-dbl/bin/python cli/dblcheck.py --protocol ospf          # limit to one protocol
 dbl/bin/python cli/dblcheck.py --no-diagnose            # skip AI diagnosis
-dbl/bin/python cli/dblcheck.py --format json            # JSON output for CI/CD
-dbl/bin/python cli/dblcheck.py --headless               # daemon / no terminal output
 ```
 
 ### Daemon Mode

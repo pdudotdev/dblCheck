@@ -6,7 +6,7 @@ import pytest
 from validation.assertions import (
     Assertion, AssertionType, AssertionResult, EvaluatedAssertion,
 )
-from validation.report import format_text, format_json, format_run_dict
+from validation.report import format_text, format_run_dict
 
 
 def _make_pass(device="R1", interface="eth0"):
@@ -161,26 +161,3 @@ def test_format_text_duration():
     assert "3.5s" in text
 
 
-# ── format_json ───────────────────────────────────────────────────────────────
-
-def test_format_json_valid_json():
-    output = format_json([_make_pass(), _make_fail()], 1.0)
-    parsed = json.loads(output)
-    assert isinstance(parsed, dict)
-
-
-def test_format_json_matches_run_dict():
-    results = [_make_pass(), _make_fail()]
-    run_dict = format_run_dict(results, 1.0)
-    json_output = format_json(results, 1.0)
-    parsed = json.loads(json_output)
-    assert parsed["summary"]["total"] == run_dict["summary"]["total"]
-    assert parsed["summary"]["passed"] == run_dict["summary"]["passed"]
-    assert parsed["summary"]["failed"] == run_dict["summary"]["failed"]
-
-
-def test_format_json_assertions_count():
-    results = [_make_pass(), _make_fail(), _make_error()]
-    output = format_json(results, 1.0)
-    parsed = json.loads(output)
-    assert len(parsed["assertions"]) == 3

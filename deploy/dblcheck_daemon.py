@@ -34,9 +34,6 @@ except ValueError:
 def _headless_args() -> types.SimpleNamespace:
     """Build a fake args namespace for headless daemon runs."""
     return types.SimpleNamespace(
-        device=[],
-        protocol=None,
-        output_format="text",
         no_diagnose=False,
         headless=True,
     )

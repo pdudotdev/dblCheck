@@ -4,7 +4,7 @@
 
 ### Test Suite
 
-- 350 tests across 14 suites (12 unit, 2 integration) with zero silent passes
+- 409 tests across 14 suites (12 unit, 2 integration) with zero silent passes
 - Unit tests: normalizers (6 vendors × 4 protocols), derivation, evaluator, input models, platform map, collector, report formatting, tool layer, helpers
 - Integration tests: platform coverage matrix (generates coverage report), end-to-end pipeline (derive → evaluate → report)
 - Test runner (`testing/run_tests.sh`) with stable suite IDs and per-suite pass/fail tracking
@@ -26,8 +26,8 @@
 - Assertions derived automatically from NetBox config contexts — no manual test definitions
 - Seven assertion types: interface up/up, OSPF neighbor adjacency, OSPF router-id, OSPF area type, OSPF default-originate, BGP session state, EIGRP neighbor adjacency
 - Pass/fail/error evaluation with fuzzy interface name matching across vendor abbreviation styles
-- CLI output: color-coded terminal report with per-device summary, or JSON for CI/CD pipelines
-- Filters: `--device`, `--protocol`, `--format`, `--no-diagnose`, `--headless`
+- CLI output: color-coded terminal report with per-device summary
+- Flags: `--no-diagnose`, `--headless`
 
 ### Multi-Vendor Support
 
