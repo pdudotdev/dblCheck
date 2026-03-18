@@ -5,11 +5,12 @@ or if Vault is unreachable. This makes Vault fully optional — the system works
 it by reading secrets from .env as before.
 
 Vault paths used by dblCheck:
-  dblcheck/router     → username, password   (SSH/RESTCONF device credentials)
-  dblcheck/netbox     → token                (NetBox API token)
-  dblcheck/anthropic  → api_key              (Anthropic API key for AI diagnosis)
-  dblcheck/jira       → api_token            (reserved, future use)
-  dblcheck/discord    → bot_token            (reserved, future use)
+  dblcheck/router          → username, password   (default SSH device credentials)
+  dblcheck/router<style>   → username, password   (per-platform override, e.g. dblcheck/routerjunos)
+  dblcheck/netbox          → token                (NetBox API token)
+  dblcheck/anthropic       → api_key              (Anthropic API key for AI diagnosis)
+  dblcheck/jira            → api_token            (reserved, future use)
+  dblcheck/discord         → bot_token            (reserved, future use)
 """
 import logging
 import os
@@ -60,7 +61,8 @@ def get_secret(path: str, key: str, fallback_env: str = "", quiet: bool = False)
         )
         data: dict = response["data"]["data"]
         _cache[path] = data
-        log.info("Vault: loaded secret path '%s'", path)
+        log_fn = log.debug if quiet else log.info
+        log_fn("Vault: loaded secret path '%s'", path)
         if key not in data:
             return os.getenv(fallback_env) if fallback_env else None
         return data[key]

@@ -56,9 +56,6 @@ class OspfQuery(BaseParamsModel):
         ..., description="neighbors | database | borders | config | interfaces | details"
     )
     vrf: str | None = Field(None, description="Optional VRF name (default: global routing table)")
-    transport: Literal["restconf", "ssh"] | None = Field(
-        None, description="Force a specific transport tier (restconf/ssh). Default: auto (ActionChain fallback). Only applies to c8000v devices."
-    )
 
 # BGP query - input model
 class BgpQuery(BaseParamsModel):
@@ -66,11 +63,8 @@ class BgpQuery(BaseParamsModel):
     query: Literal["summary", "table", "config", "neighbors"] = Field(
         ..., description="summary | table | config | neighbors"
     )
-    neighbor: str | None = Field(None, description="Optional neighbor IP to filter output (neighbors query, IOS only)")
+    neighbor: str | None = Field(None, description="Optional neighbor IP to filter output (neighbors query)")
     vrf: str | None = Field(None, description="Optional VRF name (default: global routing table)")
-    transport: Literal["restconf", "ssh"] | None = Field(
-        None, description="Force a specific transport tier (restconf/ssh). Default: auto (ActionChain fallback). Only applies to c8000v devices."
-    )
 
     @field_validator('neighbor')
     @classmethod
@@ -83,13 +77,17 @@ class BgpQuery(BaseParamsModel):
             raise ValueError(f"neighbor must be a valid IP address, got: {v!r}")
         return v
 
+class EigrpQuery(BaseParamsModel):
+    device: str = Field(..., description="Device name from inventory")
+    query: Literal["neighbors", "interfaces", "config", "topology"] = Field(
+        ..., description="EIGRP query type"
+    )
+    vrf: str | None = Field(None, description="Optional VRF name")
+
 class RoutingQuery(BaseParamsModel):
     device: str
     prefix: str | None = Field(None, description="Optional prefix to look up")
     vrf: str | None = Field(None, description="Optional VRF name (default: global routing table)")
-    transport: Literal["restconf", "ssh"] | None = Field(
-        None, description="Force a specific transport tier (restconf/ssh). Default: auto (ActionChain fallback). Only applies to c8000v devices."
-    )
 
     @field_validator('prefix')
     @classmethod
@@ -110,16 +108,10 @@ class RoutingPolicyQuery(BaseParamsModel):
         "policy_based_routing", "access_lists"
     ] = Field(..., description="redistribution | route_maps | prefix_lists | policy_based_routing | access_lists")
     vrf: str | None = Field(None, description="Optional VRF name (default: global routing table)")
-    transport: Literal["restconf", "ssh"] | None = Field(
-        None, description="Force a specific transport tier (restconf/ssh). Default: auto (ActionChain fallback). Only applies to c8000v devices."
-    )
 
 # Interfaces query - input model
 class InterfacesQuery(BaseParamsModel):
     device: str = Field(..., description="Device name from inventory")
-    transport: Literal["restconf", "ssh"] | None = Field(
-        None, description="Force a specific transport tier (restconf/ssh). Default: auto (ActionChain fallback). Only applies to c8000v devices."
-    )
 
 # Show command - input model
 class ShowCommand(BaseParamsModel):
@@ -130,12 +122,13 @@ class ShowCommand(BaseParamsModel):
     @field_validator("command")
     @classmethod
     def must_be_read_only(cls, v: str) -> str:
-        """Enforce safe, read-only show commands (IOS SSH only).
+        """Enforce safe, read-only show commands (all vendors).
 
         Rules:
-          - Must start with 'show ' (case-insensitive)
+          - Must start with 'show ' (case-insensitive) or '/' (RouterOS)
           - Must not contain control characters (\\r, \\n, \\x00)
-          - Second token must not be a sensitive command category
+          - 'show' commands: second token must not be a sensitive command category
+          - RouterOS '/' commands: must contain a safe verb and no dangerous verbs
         """
         stripped = v.strip()
 
@@ -143,25 +136,42 @@ class ShowCommand(BaseParamsModel):
         if any(c in stripped for c in '\r\n\x00'):
             raise ValueError("run_show: command must not contain control characters")
 
-        # CLI command: must start with "show " (case-insensitive)
-        if not stripped.lower().startswith("show "):
-            raise ValueError(
-                f"run_show only accepts read-only 'show' commands. Got: {stripped!r}"
-            )
+        if stripped.lower().startswith("show "):
+            # Blocklist sensitive show categories that expose credentials/keys/config.
+            # Also catches IOS abbreviations (e.g. "show run" → "show running-config"):
+            # if any blocked word starts with the user's token, treat it as blocked.
+            # Minimum 3 chars for prefix matching to avoid false positives on short tokens.
+            _BLOCKED = frozenset({"running-config", "startup-config", "tech-support",
+                                  "aaa", "crypto", "snmp", "secret"})
+            tokens = stripped.lower().split()
+            if len(tokens) >= 2:
+                cmd = tokens[1]
+                if any(cmd == b or (len(cmd) >= 3 and b.startswith(cmd)) for b in _BLOCKED):
+                    raise ValueError(
+                        f"run_show: 'show {cmd}' is not permitted (sensitive data)"
+                    )
 
-        # Blocklist sensitive show categories that expose credentials/keys/config.
-        # Also catches IOS abbreviations (e.g. "show run" → "show running-config"):
-        # if any blocked word starts with the user's token, treat it as blocked.
-        # Minimum 3 chars for prefix matching to avoid false positives on short tokens.
-        _BLOCKED = frozenset({"running-config", "startup-config", "tech-support",
-                              "aaa", "crypto", "snmp", "secret"})
-        tokens = stripped.lower().split()
-        if len(tokens) >= 2:
-            cmd = tokens[1]
-            if any(cmd == b or (len(cmd) >= 3 and b.startswith(cmd)) for b in _BLOCKED):
+        elif stripped.startswith("/"):
+            # RouterOS commands: must contain a safe verb and no dangerous verbs
+            _ROS_SAFE      = frozenset({"print", "monitor"})
+            _ROS_DANGEROUS = frozenset({"set", "add", "remove", "disable", "enable",
+                                        "reset", "move", "unset"})
+            tokens = stripped.lower().split()
+            if not any(t in _ROS_SAFE for t in tokens):
                 raise ValueError(
-                    f"run_show: 'show {cmd}' is not permitted (sensitive data)"
+                    f"run_show: RouterOS command must contain a read-only verb "
+                    f"(print, monitor). Got: {stripped!r}"
                 )
+            if any(t in _ROS_DANGEROUS for t in tokens):
+                raise ValueError(
+                    f"run_show: RouterOS command contains a dangerous verb. Got: {stripped!r}"
+                )
+
+        else:
+            raise ValueError(
+                f"run_show only accepts read-only commands: 'show ...' (IOS/IOS-XE) "
+                f"or '/...' (RouterOS). Got: {stripped!r}"
+            )
 
         return v
 

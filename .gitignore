@@ -11,3 +11,5 @@ logs/
 data/
 testing/manual_results/
 dbl/
+clab-dblcheck/
+legacy/

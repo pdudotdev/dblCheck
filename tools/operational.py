@@ -32,7 +32,7 @@ async def get_interfaces(params: InterfacesQuery) -> dict:
     except KeyError:
         return _error_response(params.device, f"Interface status not supported on {device['cli_style'].upper()}")
 
-    return await execute_command(params.device, action, transport=params.transport)
+    return await execute_command(params.device, action)
 
 
 async def run_show(params: ShowCommand) -> dict:

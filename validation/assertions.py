@@ -11,6 +11,7 @@ class AssertionType(Enum):
     OSPF_AREA_TYPE     = "ospf_area_type"
     OSPF_DEFAULT_ORIG  = "ospf_default_originate"
     BGP_SESSION        = "bgp_session"
+    EIGRP_NEIGHBOR     = "eigrp_neighbor"
 
 
 class AssertionResult(Enum):
@@ -25,7 +26,7 @@ class Assertion:
     type:         AssertionType
     device:       str
     description:  str           # human-readable, e.g. "C1C GigabitEthernet2 should be up/up"
-    expected:     Any           # the intended value derived from INTENT.json
+    expected:     Any           # the intended value derived from network intent
     protocol:     str = ""      # "interface", "ospf", "bgp"
     peer:         str = ""      # peer device name (for neighbor/session assertions)
     interface:    str = ""      # local interface name
@@ -49,4 +50,5 @@ class DeviceState:
     ospf_neighbors: list | None = None   # [{"state": "FULL", "interface": "Gi2"}]
     ospf_details:   dict | None = None   # {"router_id": "...", "areas": {...}, "default_originate": bool}
     bgp_summary:    list | None = None   # [{"neighbor_ip": "...", "state": "Established", "as": N}]
+    eigrp_neighbors: list | None = None  # [{"neighbor_ip": "...", "interface": "..."}]
     errors:         list = field(default_factory=list)

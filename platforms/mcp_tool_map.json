@@ -4,43 +4,71 @@
   "get_ospf": {
     "platform_map_section": "ospf",
     "queries": {
-      "ios":          ["neighbors", "database", "borders", "config", "interfaces", "details"],
-      "ios_restconf": ["neighbors", "database", "borders", "config", "interfaces", "details"]
+      "ios":      ["neighbors", "database", "borders", "config", "interfaces", "details"],
+      "eos":      ["neighbors", "database", "borders", "config", "interfaces", "details"],
+      "junos":    ["neighbors", "database", "borders", "config", "interfaces", "details"],
+      "aos":      ["neighbors", "database", "borders", "config", "interfaces", "details"],
+      "routeros": ["neighbors", "database", "borders", "config", "interfaces", "details"],
+      "vyos":     ["neighbors", "database", "borders", "config", "interfaces", "details"]
     }
   },
 
   "get_bgp": {
     "platform_map_section": "bgp",
     "queries": {
-      "ios":          ["summary", "table", "config", "neighbors"],
-      "ios_restconf": ["summary", "table", "config", "neighbors"]
+      "ios":      ["summary", "table", "config", "neighbors"],
+      "eos":      ["summary", "table", "config", "neighbors"],
+      "junos":    ["summary", "table", "config", "neighbors"],
+      "aos":      ["summary", "table", "config", "neighbors"],
+      "routeros": ["summary", "table", "config", "neighbors"],
+      "vyos":     ["summary", "table", "config", "neighbors"]
     }
   },
 
   "get_routing": {
     "platform_map_section": "routing_table",
     "queries": {
-      "ios":          ["ip_route"],
-      "ios_restconf": ["ip_route"]
+      "ios":      ["ip_route"],
+      "eos":      ["ip_route"],
+      "junos":    ["ip_route"],
+      "aos":      ["ip_route"],
+      "routeros": ["ip_route"],
+      "vyos":     ["ip_route"]
     },
-    "notes": "Pass prefix=<ip> for targeted lookup, omit for full table. iOS asyncssh CLI: prefix appended to command string."
+    "notes": "Pass prefix=<ip> for targeted lookup, omit for full table."
   },
 
   "get_routing_policies": {
     "platform_map_section": "routing_policies",
     "queries": {
-      "ios":          ["redistribution", "route_maps", "prefix_lists", "policy_based_routing", "access_lists"],
-      "ios_restconf": ["redistribution", "route_maps", "prefix_lists", "policy_based_routing", "access_lists"]
+      "ios":      ["redistribution", "route_maps", "prefix_lists", "policy_based_routing", "access_lists"],
+      "eos":      ["redistribution", "route_maps", "prefix_lists", "policy_based_routing", "access_lists"],
+      "junos":    ["redistribution", "route_maps", "prefix_lists", "policy_based_routing", "access_lists"],
+      "aos":      ["redistribution", "route_maps", "prefix_lists", "policy_based_routing", "access_lists"],
+      "routeros": ["redistribution", "route_maps", "prefix_lists", "policy_based_routing", "access_lists"],
+      "vyos":     ["redistribution", "route_maps", "prefix_lists", "policy_based_routing", "access_lists"]
     }
   },
 
   "get_interfaces": {
     "platform_map_section": "interfaces",
     "queries": {
-      "ios":          ["interface_status"],
-      "ios_restconf": ["interface_status"]
+      "ios":      ["interface_status"],
+      "eos":      ["interface_status"],
+      "junos":    ["interface_status"],
+      "aos":      ["interface_status"],
+      "routeros": ["interface_status"],
+      "vyos":     ["interface_status"]
     }
   },
 
-  "_vrf_note": "All protocol/routing/operational tools accept an optional vrf parameter. If omitted, the global routing table is used. The vrf parameter is available for future L3VPN deployments. IOS asyncssh CLI tools use dual-entry format; c8000v RESTCONF tools use URL paths."
+  "get_eigrp": {
+    "platform_map_section": "eigrp",
+    "queries": {
+      "ios": ["neighbors", "interfaces", "config", "topology"]
+    },
+    "notes": "EIGRP is only supported on IOS/IOS-XE devices."
+  },
+
+  "_vrf_note": "All protocol/routing/operational tools accept an optional vrf parameter. If omitted, the device-level vrf from the inventory is used; if that is also absent, the global routing table is used."
 }

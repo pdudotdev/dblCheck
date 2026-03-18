@@ -71,4 +71,13 @@ def setup_logging() -> None:
     sh.setFormatter(_make_formatter())
     root.addHandler(sh)
 
+    # Suppress scrapli's internal log chatter (enterMode, mode transitions, etc.)
+    # Scrapli's Zig backend routes through Python logging via ffi_logger_callback_wrapper.
+    # The enterMode "no response found" messages are at WARNING level, so we raise to ERROR.
+    # NullHandler prevents ERROR+ messages from leaking to Python's lastResort stderr handler.
+    # dblCheck's own SSH error handling (try/except in execute_ssh) makes scrapli logs redundant.
+    scrapli_logger = logging.getLogger("scrapli")
+    scrapli_logger.setLevel(logging.ERROR)
+    scrapli_logger.addHandler(logging.NullHandler())
+
 

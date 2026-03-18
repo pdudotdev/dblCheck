@@ -1,4 +1,6 @@
 """Compare assertions against collected device state → pass/fail/error."""
+import re
+
 from validation.assertions import (
     Assertion, AssertionType, AssertionResult,
     EvaluatedAssertion, DeviceState,
@@ -30,6 +32,8 @@ def _evaluate_one(a: Assertion, ds: DeviceState) -> EvaluatedAssertion:
         return _eval_ospf_default_orig(a, ds)
     if a.type == AssertionType.BGP_SESSION:
         return _eval_bgp_session(a, ds)
+    if a.type == AssertionType.EIGRP_NEIGHBOR:
+        return _eval_eigrp_neighbor(a, ds)
     return EvaluatedAssertion(a, AssertionResult.ERROR, detail=f"Unknown assertion type: {a.type}")
 
 
@@ -66,6 +70,11 @@ def _eval_ospf_neighbor(a: Assertion, ds: DeviceState) -> EvaluatedAssertion:
     # Match by local interface name — avoids router-id vs interface-IP ambiguity
     on_intf = [n for n in ds.ospf_neighbors
                if _interface_matches(n.get("interface", ""), a.interface)]
+
+    # Fallback: match by peer address when interface is unavailable (e.g. RouterOS)
+    if not on_intf and a.neighbor_ip:
+        on_intf = [n for n in ds.ospf_neighbors
+                   if n.get("address", "") == a.neighbor_ip]
 
     if not on_intf:
         return EvaluatedAssertion(
@@ -162,6 +171,28 @@ def _eval_bgp_session(a: Assertion, ds: DeviceState) -> EvaluatedAssertion:
     )
 
 
+def _eval_eigrp_neighbor(a: Assertion, ds: DeviceState) -> EvaluatedAssertion:
+    if ds.eigrp_neighbors is None:
+        return EvaluatedAssertion(a, AssertionResult.ERROR, detail=_collection_error(ds, "eigrp_neighbors"))
+
+    # Match by local interface name
+    on_intf = [n for n in ds.eigrp_neighbors
+               if _interface_matches(n.get("interface", ""), a.interface)]
+
+    # Fallback: match by neighbor IP
+    if not on_intf and a.neighbor_ip:
+        on_intf = [n for n in ds.eigrp_neighbors
+                   if n.get("neighbor_ip", "") == a.neighbor_ip]
+
+    if on_intf:
+        return EvaluatedAssertion(a, AssertionResult.PASS, actual="up")
+    return EvaluatedAssertion(
+        a, AssertionResult.FAIL,
+        actual="no neighbor",
+        detail=f"No EIGRP neighbor found on {a.interface}",
+    )
+
+
 # ─── Helpers ─────────────────────────────────────────────────────────────────
 
 def _collection_error(ds: DeviceState, query: str) -> str:
@@ -177,23 +208,25 @@ def _collection_error(ds: DeviceState, query: str) -> str:
 def _interface_matches(actual_name: str, expected_name: str) -> bool:
     """Match interface names, handling abbreviation differences.
 
-    e.g. "GigabitEthernet2" matches "Gi2", "Ethernet1/3" matches "Et1/3"
+    e.g. "GigabitEthernet2" matches "Gi2", "Ethernet1/3" matches "Et1/3",
+    "1/1/2" matches "1/1/2" (Aruba digit-prefix interfaces).
     """
     if actual_name == expected_name:
         return True
-    # Normalize: lowercase, remove spaces
     a = actual_name.lower().replace(" ", "")
     e = expected_name.lower().replace(" ", "")
     if a == e:
         return True
-    # Try abbreviated match: take the number suffix and compare
-    a_num = "".join(c for c in a if c.isdigit() or c == "/")
-    e_num = "".join(c for c in e if c.isdigit() or c == "/")
+    # Extract leading alpha prefix (letters and hyphens) and the numeric/path suffix
+    a_alpha = re.match(r'^([a-z-]*)', a).group(1).rstrip('-')
+    e_alpha = re.match(r'^([a-z-]*)', e).group(1).rstrip('-')
+    a_num = re.sub(r'^[a-z-]*', '', a)
+    e_num = re.sub(r'^[a-z-]*', '', e)
     if a_num and e_num and a_num == e_num:
-        # Also check that the first letter(s) of the type match
-        a_prefix = a[:2]
-        e_prefix = e[:2]
-        return a_prefix == e_prefix
+        if a_alpha and e_alpha:
+            return a_alpha[:2] == e_alpha[:2]
+        # Both have no alpha prefix (e.g. Aruba "1/1/2") — suffix match is enough
+        return a_alpha == e_alpha
     return False
 
 

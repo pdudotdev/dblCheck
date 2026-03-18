@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""dblCheck — validate live network state against INTENT.json.
+"""dblCheck — validate live network state against network intent.
 
 Usage:
     python cli/dblcheck.py                          # full validation
@@ -88,10 +88,19 @@ def _box_bot() -> str:
 
 
 def load_intent() -> dict:
-    """Load INTENT.json. Isolated so future versions can load from NetBox/Git."""
-    path = _PROJECT_ROOT / "intent" / "INTENT.json"
-    with open(path) as f:
-        return json.load(f)
+    """Load network intent from NetBox config contexts."""
+    try:
+        from core.netbox import load_intent as _netbox_intent
+        intent = _netbox_intent()
+        if intent:
+            return intent
+    except Exception:
+        pass
+    print(
+        "Error: Intent not available — NetBox unreachable or no config contexts found.",
+        file=sys.stderr,
+    )
+    sys.exit(1)
 
 
 def _ensure_data_dirs() -> None:
@@ -196,7 +205,7 @@ async def _handle_incident(failures: list, fingerprint: str,
 def _build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="validate",
-        description="dblCheck: validate live network state against INTENT.json",
+        description="dblCheck: validate live network state against network intent",
     )
     p.add_argument(
         "--device", action="append", default=[],
@@ -204,7 +213,7 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Limit to specific device (repeatable, e.g. --device C1C --device E1C)",
     )
     p.add_argument(
-        "--protocol", choices=["ospf", "bgp", "interface"],
+        "--protocol", choices=["ospf", "bgp", "interface", "eigrp"],
         help="Limit to a specific protocol category",
     )
     p.add_argument(
@@ -399,6 +408,7 @@ def _format_tool_call(name: str, input_obj: dict) -> str:
     secondary_keys = {
         "get_ospf":             "query",
         "get_bgp":              "query",
+        "get_eigrp":            "query",
         "get_routing_policies": "query",
         "get_routing":          "prefix",
         "run_show":             "command",

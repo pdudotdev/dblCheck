@@ -1,4 +1,4 @@
-"""Read INTENT.json and build a checklist of assertions.
+"""Read network intent and build a checklist of assertions.
 
 No devices are contacted here — this is pure intent reading.
 """
@@ -13,7 +13,7 @@ def derive_assertions(
     """Derive all validation assertions from an intent dict.
 
     Args:
-        intent:          Parsed INTENT.json as a Python dict.
+        intent:          Parsed intent dict (from NetBox config contexts).
         device_filter:   If set, only emit assertions for these device names.
         protocol_filter: If set, only emit assertions for this protocol
                          ("interface", "ospf", or "bgp").
@@ -33,6 +33,9 @@ def derive_assertions(
 
         if not protocol_filter or protocol_filter == "bgp":
             assertions.extend(_derive_bgp(device, cfg))
+
+        if not protocol_filter or protocol_filter == "eigrp":
+            assertions.extend(_derive_eigrp(device, cfg, routers))
 
     return assertions
 
@@ -181,6 +184,43 @@ def _derive_ospf_default_originate(device: str, ospf: dict) -> list[Assertion]:
         expected=True,
         protocol="ospf",
     )]
+
+
+# ─── EIGRP assertions ────────────────────────────────────────────────────────
+
+def _derive_eigrp(device: str, cfg: dict, all_routers: dict) -> list[Assertion]:
+    """For each link that both sides list in their EIGRP networks, expect an active neighbor."""
+    assertions = []
+    eigrp = cfg.get("igp", {}).get("eigrp", {})
+    if not eigrp:
+        return assertions
+
+    my_networks: set[str] = set(eigrp.get("networks", []))
+    links = cfg.get("direct_links", {})
+
+    for peer, link in links.items():
+        subnet = link.get("subnet", "")
+        if subnet not in my_networks:
+            continue
+
+        peer_cfg = all_routers.get(peer, {})
+        peer_eigrp = peer_cfg.get("igp", {}).get("eigrp", {})
+        peer_networks: set[str] = set(peer_eigrp.get("networks", []))
+        if subnet not in peer_networks:
+            continue
+
+        intf = link.get("local_interface", "")
+        assertions.append(Assertion(
+            type=AssertionType.EIGRP_NEIGHBOR,
+            device=device,
+            description=f"{device} should have EIGRP neighbor {peer} on {intf} (AS {eigrp.get('as_number', '?')})",
+            expected="up",
+            protocol="eigrp",
+            peer=peer,
+            interface=intf,
+            neighbor_ip=link.get("remote_ip", ""),
+        ))
+    return assertions
 
 
 # ─── BGP assertions ──────────────────────────────────────────────────────────

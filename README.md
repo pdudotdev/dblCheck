@@ -26,7 +26,7 @@
 AI-assisted **network intent validation framework** for Cisco environments. Continuously checks live network state against design intent and invokes a Claude agent to diagnose failures.
 
 ▫️ **Key characteristics:**
-- [x] **Intent-driven validation** — define expected state in `intent/INTENT.json`, dblCheck does the rest
+- [x] **Intent-driven validation** — define expected state in NetBox config contexts, dblCheck does the rest
 - [x] **AI root-cause diagnosis** — Claude agent investigates failures using 9 read-only MCP tools
 - [x] **Read-only** — agent queries devices, never configures
 - [x] **Real-time dashboard** — live validation results and streamed AI diagnosis
@@ -48,7 +48,6 @@ AI-assisted **network intent validation framework** for Cisco environments. Cont
 | MCP (FastMCP) | ✓ |
 | Python | ✓ |
 | Scrapli | ✓ |
-| Genie | ✓ |
 | HashiCorp Vault | ✓ |
 | NetBox | ✓ |
 
@@ -76,7 +75,26 @@ python3 -m venv dbl
 dbl/bin/pip install -r requirements.txt
 ```
 
-▫️ **Step 2 — Vault secrets:**
+▫️ **Step 2 — Vault:**
+
+Start Vault (dev mode, lab use):
+```
+vault server -dev -dev-root-token-id=<your-root-token>
+export VAULT_ADDR=http://127.0.0.1:8200
+export VAULT_TOKEN=<your-root-token>
+```
+
+Or initialize and unseal an existing Vault instance:
+```
+vault operator init -key-shares=1 -key-threshold=1   # first-time setup
+vault operator unseal                                  # after every restart
+```
+
+> 🔑 Save the unseal key output from `vault operator init` somewhere safe — you'll need it every time Vault restarts or seals. Without it, a sealed Vault cannot be recovered.
+
+> ⚠️ dblCheck requires Vault to be **running and unsealed** before any run. If Vault is unavailable, credential lookups fall back to env vars (see `.env.example`).
+
+Store secrets:
 ```
 vault kv put secret/dblcheck/router username=<user> password=<pass>
 vault kv put secret/dblcheck/netbox token=<token>
@@ -142,7 +160,7 @@ Shows live validation results and streams AI diagnosis output when failures are 
 - [x] Default credentials: see [**.env.example**](.env.example)
 
 ## 📄 Disclaimer
-You are responsible for defining your own network intent (`intent/INTENT.json`), building your test environment, and meeting the necessary conditions (Python 3.11+, Claude CLI, HashiCorp Vault, etc.).
+You are responsible for defining your own network intent (NetBox config contexts), building your test environment, and meeting the necessary conditions (Python 3.11+, Claude CLI, HashiCorp Vault, etc.).
 
 ## 📜 License
 Licensed under the [**Business Source License 1.1**](LICENSE).
