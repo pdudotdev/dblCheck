@@ -50,6 +50,12 @@ Continuously checks **live network state against design intent** and invokes a C
 - [x] Sonnet 4.6
 - [x] Opus 4.6 (default, best reasoning)
 
+▫️ **Operational Guardrails:**
+- [x] See [**guardrails.md**](metadata/about/guardrails.md)
+
+▫️ **Agent Prompt:**
+- [x] See [**agent_prompt.md**](metadata/about/agent_prompt.md)
+
 ## 🍀 Here's a Quick Demo
 - [x] *Demo video coming soon...*
 
@@ -60,7 +66,7 @@ Continuously checks **live network state against design intent** and invokes a C
 
 | Tool | |
 |------|---|
-| Claude Code | ✓ |
+| Claude Agent | ✓ |
 | MCP (FastMCP) | ✓ |
 | Python | ✓ |
 | Scrapli | ✓ |
