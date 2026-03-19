@@ -137,13 +137,13 @@ interface Ethernet0/1
  no shutdown
 !
 interface Ethernet0/2
- description TO-A2V
+ description TO-A2A
  vrf forwarding VRF1
  ip address 10.1.1.10 255.255.255.252
  no shutdown
 !
 interface Ethernet0/3
- description TO-A3V
+ description TO-A3A
  vrf forwarding VRF1
  ip address 10.1.1.18 255.255.255.252
  no shutdown

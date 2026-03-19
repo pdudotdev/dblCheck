@@ -10,7 +10,6 @@ Representative devices (one per vendor):
   C1J — Juniper JunOS  (junos)
   D2B — Aruba AOS-CX   (aos)
   A1M — MikroTik       (routeros)
-  A2V — VyOS           (vyos)
 
 Result classification:
   PASS  — valid data returned
@@ -54,10 +53,9 @@ DEVICES = {
     "C1J": {"cli_style": "junos",    "platform": "Juniper JunOS",          "location": "Core"},
     "D2B": {"cli_style": "aos",      "platform": "Aruba AOS-CX",           "location": "Distribution"},
     "A1M": {"cli_style": "routeros", "platform": "MikroTik RouterOS",      "location": "Access"},
-    "A2V": {"cli_style": "vyos",     "platform": "VyOS",                   "location": "Access"},
 }
 
-DEVICE_ORDER = ["D1C", "C2A", "C1J", "D2B", "A1M", "A2V"]
+DEVICE_ORDER = ["D1C", "C2A", "C1J", "D2B", "A1M"]
 
 CATEGORIES = ["ospf", "bgp", "routing_table", "routing_policies", "interfaces"]
 
@@ -71,7 +69,6 @@ MUST_HAVE_DATA = {
     ("C1J", "interfaces", "interface_status"),
     ("D2B", "interfaces", "interface_status"),
     ("A1M", "interfaces", "interface_status"),
-    ("A2V", "interfaces", "interface_status"),
     # OSPF neighbors — D1C and C1J are core OSPF speakers in this topology
     ("D1C", "ospf", "neighbors"),
     ("D1C", "ospf", "details"),
@@ -268,7 +265,6 @@ C2A_CASES = _cases_for("eos", CATEGORIES)
 C1J_CASES = _cases_for("junos", CATEGORIES)
 D2B_CASES = _cases_for("aos", CATEGORIES)
 A1M_CASES = _cases_for("routeros", CATEGORIES)
-A2V_CASES = _cases_for("vyos", CATEGORIES)
 
 
 # ── LT-001a: D1C — Cisco IOS-XE ──────────────────────────────────────────────
@@ -306,8 +302,3 @@ def test_a1m(category, query):
     _run_case("A1M", "routeros", category, query)
 
 
-# ── LT-001f: A2V — VyOS ──────────────────────────────────────────────────────
-
-@pytest.mark.parametrize("category,query", A2V_CASES)
-def test_a2v(category, query):
-    _run_case("A2V", "vyos", category, query)

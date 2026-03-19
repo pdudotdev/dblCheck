@@ -103,21 +103,6 @@
   }
   #history-select option { background: var(--surface); }
 
-  #dismiss-btn {
-    margin-left: auto;
-    background: transparent;
-    border: 1px solid var(--muted);
-    color: var(--muted);
-    font-family: inherit;
-    font-size: 14px;
-    font-weight: 700;
-    letter-spacing: 0.5px;
-    padding: 3px 10px;
-    border-radius: 3px;
-    cursor: pointer;
-    display: none;
-  }
-  #dismiss-btn:hover { background: rgba(139,148,158,0.15); color: var(--text); }
 
   /* ── Resize handle ── */
   #resize-handle {
@@ -253,14 +238,28 @@
 
   /* ── Diagnosis section ── */
   #diagnosis-section {
-    display: none;
-    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 52px;
     overflow: hidden;
-    grid-template-columns: 1fr 1fr;
   }
-  #diagnosis-section.visible {
+  #diagnosis-section.active {
     display: grid;
+    grid-template-columns: 1fr 1fr;
+    flex: 1;
+    align-items: stretch;
   }
+  #diagnosis-section:not(.active) .panel { display: none; }
+  #diagnosis-section.active #diagnosis-placeholder { display: none; }
+
+  #diagnosis-placeholder {
+    color: var(--muted);
+    font-size: 14px;
+    text-align: center;
+  }
+  #diagnosis-placeholder a { color: var(--blue); text-decoration: none; }
+  #diagnosis-placeholder a:hover { text-decoration: underline; }
 
   .panel {
     display: flex;
@@ -330,6 +329,7 @@
   }
   #idle-overlay .idle-text { color: var(--muted); font-size: 18px; }
   #idle-overlay .idle-sub  { color: var(--border); font-size: 14px; margin-top: -8px; }
+
 
   /* ── Reasoning panel ── */
   #reasoning-body { line-height: 1.6; }
@@ -425,8 +425,13 @@
   </div>
 
   <div class="meta-group" id="hdr-elapsed-group" style="display:none">
-    <span class="label">ELAPSED</span>
+    <span class="label" id="hdr-elapsed-label">ELAPSED</span>
     <span class="value" id="hdr-elapsed">0s</span>
+  </div>
+
+  <div class="meta-group" id="hdr-interval-group" style="display:none">
+    <span class="label">INTERVAL</span>
+    <span class="value" id="hdr-interval"></span>
   </div>
 
   <div class="meta-group" id="hdr-cost-group" style="display:none">
@@ -443,7 +448,6 @@
     <option value="">History</option>
   </select>
 
-  <button id="dismiss-btn" onclick="dismissSession()">✕ DISMISS</button>
   <div id="ws-status">Connecting…</div>
 </div>
 
@@ -492,8 +496,9 @@
   <!-- Drag handle for resizing validation/diagnosis split -->
   <div id="resize-handle"></div>
 
-  <!-- Diagnosis panels (two-column, shown only during/after diagnosis) -->
+  <!-- Diagnosis panels (always visible — placeholder or agent content) -->
   <div id="diagnosis-section">
+    <div id="diagnosis-placeholder">Waiting for validation run…</div>
     <div class="panel">
       <div class="panel-header">
         AGENT REASONING
@@ -528,8 +533,9 @@ let toolsLocked = false;
 let reasoningBuffer = "";
 let reasoningRenderedLen = 0;
 let renderPending = false;
-let sessionHeld = false;
+let diagnosisCompleted = false;
 let currentRunData = null;
+let countdownTimer = null;
 
 const toolEntries = {};
 
@@ -556,7 +562,7 @@ function handleMessage(msg) {
     case "validation_start":   onValidationStart(msg); break;
     case "validation_results": onValidationResults(msg); break;
     case "session_start":      onSessionStart(msg); break;
-    case "session_idle":       onSessionIdle(); break;
+    case "session_idle":       onSessionIdle(msg); break;
     case "session_end":        onSessionEnd(msg); break;
     case "reasoning":          appendReasoning(msg.text); break;
     case "tool_start":         addToolEntry(msg.id, msg.tool, msg.is_mcp); break;
@@ -570,15 +576,35 @@ function handleInit(msg) {
   if (msg.run_history) populateHistory(msg.run_history);
 
   const s = msg.state && msg.state.state;
-  if (msg.last_run) {
-    onValidationResults(msg.last_run);
-  }
+  if (msg.last_run) onValidationResults(msg.last_run);
+
   if (s === "validating") {
     onValidationStart(msg.state);
   } else if (s === "diagnosing") {
     onSessionStart(msg.state);
-  } else if (!msg.last_run) {
-    showIdleOverlay();
+  } else if (s === "idle") {
+    const hasReasoning = msg.buffer && msg.buffer.some(ev => ev.ui_type === "reasoning");
+    if (hasReasoning) {
+      // Completed diagnosis — show panes in active mode
+      showValidationCompact();
+      activateDiagnosis();
+    } else if (msg.state && msg.state.diagnosis_skipped) {
+      setDiagnosisPlaceholder(buildSkipHtml(msg.state.jira_issue_key, msg.state.jira_base_url));
+    } else if (msg.last_run && (msg.last_run.summary || {}).failed === 0 && (msg.last_run.summary || {}).errors === 0) {
+      setDiagnosisPlaceholder("✅ All validations passed — agent not invoked");
+    } else if (msg.last_run && (msg.last_run.summary || {}).failed === 0 && (msg.last_run.summary || {}).errors > 0) {
+      setDiagnosisPlaceholder("⚠️ No validation failures — " + (msg.last_run.summary.errors) + " device error(s) (SSH/collection)");
+    } else if (!msg.last_run) {
+      showIdleOverlay();
+    }
+    // Restore countdown if scheduling info is available
+    if (msg.state && msg.state.next_run_at) {
+      document.getElementById("hdr-elapsed-label").textContent = "NEXT RUN";
+      startCountdownTimer(msg.state.next_run_at);
+    }
+    if (msg.state && msg.state.interval) {
+      showMeta("hdr-interval-group", "hdr-interval", fmtInterval(msg.state.interval));
+    }
   }
 
   if (msg.buffer) msg.buffer.forEach(ev => handleMessage(ev));
@@ -586,12 +612,18 @@ function handleInit(msg) {
 
 // ─── Validation lifecycle ─────────────────────────────────────────────────────
 function onValidationStart(msg) {
+  diagnosisCompleted = false;
   setStatus("Validating…", "validating");
+  stopCountdownTimer();
+  document.getElementById("hdr-elapsed-label").textContent = "ELAPSED";
   showMeta("hdr-elapsed-group", "hdr-elapsed", "0s");
   hideMeta("hdr-results-group");
   sessionStartTime = msg.started_at ? new Date(msg.started_at) : new Date();
   startElapsedTimer();
   hideIdleOverlay();
+  // Clear any stale diagnosis from the previous run
+  clearDiagnosisPanels();
+  setDiagnosisPlaceholder("Validating…");
   // Keep validation table visible with last results (still useful context)
   showValidationTable();
 }
@@ -621,26 +653,38 @@ function onValidationResults(msg) {
 }
 
 function onSessionStart(msg) {
-  // Collapse validation table to summary bar, show diagnosis panels
-  sessionHeld = false;
-  document.getElementById("dismiss-btn").style.display = "none";
+  // Collapse validation table to summary bar, activate diagnosis panels
   clearDiagnosisPanels();
-
   setStatus("Diagnosing", "diagnosing");
   sessionStartTime = msg.started_at ? new Date(msg.started_at) : new Date();
   startElapsedTimer();
-
   showValidationCompact();
-  showDiagnosisPanels();
+  activateDiagnosis();
 }
 
-function onSessionIdle() {
-  if (sessionHeld) {
-    setStatus("Completed", "idle");
+function onSessionIdle(msg) {
+  stopElapsedTimer();
+  // Start countdown timer if scheduling info available
+  if (msg && msg.next_run_at) {
+    document.getElementById("hdr-elapsed-label").textContent = "NEXT RUN";
+    startCountdownTimer(msg.next_run_at);
+  }
+  if (msg && msg.interval) {
+    showMeta("hdr-interval-group", "hdr-interval", fmtInterval(msg.interval));
+  }
+
+  if (diagnosisCompleted) {
+    // Agent just finished — keep panes visible with content, compact table stays
+    setStatus("Idle", "idle");
     return;
   }
-  stopElapsedTimer();
-  hideDiagnosisPanels();
+  if (msg && msg.diagnosis_skipped) {
+    setDiagnosisPlaceholder(buildSkipHtml(msg.jira_issue_key, msg.jira_base_url));
+  } else if (currentRunData && (currentRunData.summary || {}).failed === 0 && (currentRunData.summary || {}).errors === 0) {
+    setDiagnosisPlaceholder("✅ All validations passed — agent not invoked");
+  } else if (currentRunData && (currentRunData.summary || {}).failed === 0 && (currentRunData.summary || {}).errors > 0) {
+    setDiagnosisPlaceholder("⚠️ No validation failures — " + currentRunData.summary.errors + " device error(s) (SSH/collection)");
+  }
   if (currentRunData) {
     setStatus("Idle", "idle");
     showValidationTable();
@@ -650,10 +694,9 @@ function onSessionIdle() {
 }
 
 function onSessionEnd(msg) {
-  sessionHeld = true;
+  diagnosisCompleted = true;
   stopElapsedTimer();
   setStatus("Completed", "idle");
-  document.getElementById("dismiss-btn").style.display = "block";
   if (msg.cost != null) {
     showMeta("hdr-cost-group", "hdr-cost", `$${msg.cost.toFixed(4)}`);
   }
@@ -662,22 +705,20 @@ function onSessionEnd(msg) {
   flushReasoning();
 }
 
-function dismissSession() {
-  sessionHeld = false;
-  document.getElementById("dismiss-btn").style.display = "none";
-  hideDiagnosisPanels();
-  hideMeta("hdr-cost-group");
-  if (currentRunData) {
-    setStatus("Idle", "idle");
-    showValidationTable();
-  } else {
-    showIdleOverlay();
-  }
-}
-
 // ─── Layout helpers ───────────────────────────────────────────────────────────
 function showIdleOverlay()  { document.getElementById("idle-overlay").classList.add("visible"); }
 function hideIdleOverlay()  { document.getElementById("idle-overlay").classList.remove("visible"); }
+
+function buildSkipHtml(jiraKey, jiraBaseUrl) {
+  let html = "Failure set unchanged — agent not invoked";
+  if (jiraKey) {
+    const url = jiraBaseUrl ? `${jiraBaseUrl}/browse/${jiraKey}` : null;
+    html += url
+      ? ` (see <a href="${url}" target="_blank">${escHtml(jiraKey)}</a>)`
+      : ` (see ${escHtml(jiraKey)})`;
+  }
+  return html;
+}
 
 function showValidationTable() {
   const vs = document.getElementById("validation-section");
@@ -704,14 +745,15 @@ function showValidationCompact() {
   document.getElementById("summary-bar").classList.add("visible");
 }
 
-function showDiagnosisPanels() {
-  document.getElementById("diagnosis-section").classList.add("visible");
-  document.getElementById("resize-handle").classList.add("visible");
+function setDiagnosisPlaceholder(html) {
+  document.getElementById("diagnosis-section").classList.remove("active");
+  document.getElementById("diagnosis-placeholder").innerHTML = html;
+  document.getElementById("resize-handle").classList.remove("visible");
 }
 
-function hideDiagnosisPanels() {
-  document.getElementById("diagnosis-section").classList.remove("visible");
-  document.getElementById("resize-handle").classList.remove("visible");
+function activateDiagnosis() {
+  document.getElementById("diagnosis-section").classList.add("active");
+  document.getElementById("resize-handle").classList.add("visible");
 }
 
 // ─── Assertion table ──────────────────────────────────────────────────────────
@@ -770,7 +812,7 @@ function loadHistoryRun(runName) {
     .then(data => {
       if (data) {
         onValidationResults(data);
-        hideDiagnosisPanels();
+        setDiagnosisPlaceholder("Viewing historical run");
         showValidationTable();
         setStatus("Idle", "idle");
       }
@@ -955,6 +997,30 @@ function updateElapsed() {
   const sec = Math.floor((Date.now() - sessionStartTime.getTime()) / 1000);
   const m = Math.floor(sec / 60), s = sec % 60;
   document.getElementById("hdr-elapsed").textContent = m > 0 ? `${m}m ${s}s` : `${s}s`;
+}
+
+function fmtInterval(secs) {
+  if (secs >= 60 && secs % 60 === 0) return `${secs / 60}m`;
+  if (secs >= 60) return `${Math.floor(secs / 60)}m ${secs % 60}s`;
+  return `${secs}s`;
+}
+
+function startCountdownTimer(nextRunAt) {
+  stopCountdownTimer();
+  const target = new Date(nextRunAt).getTime();
+  const tick = () => {
+    const remaining = Math.max(0, Math.ceil((target - Date.now()) / 1000));
+    const m = Math.floor(remaining / 60), s = remaining % 60;
+    document.getElementById("hdr-elapsed").textContent = m > 0 ? `${m}m ${s}s` : `${s}s`;
+    if (remaining === 0) stopCountdownTimer();
+  };
+  tick();
+  showMeta("hdr-elapsed-group", null, null);
+  countdownTimer = setInterval(tick, 1000);
+}
+
+function stopCountdownTimer() {
+  if (countdownTimer) { clearInterval(countdownTimer); countdownTimer = null; }
 }
 
 function copyPanel(panelId, btn) {

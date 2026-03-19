@@ -8,169 +8,218 @@ and guardrail testing. Run these by hand against a running Containerlab topology
 Prerequisites
 -------------
 - Containerlab topology is up, all 16 devices reachable over SSH
-- dblCheck installed and configured (NETBOX_URL, vault or env creds)
+- dblCheck daemon installed and running:
+    sudo deploy/install.sh        # first-time setup
+    systemctl status dblcheck     # verify running
+- Dashboard open in browser: http://localhost:5556
+  (add ?token=<value> if DASHBOARD_TOKEN is configured)
+- For testing, use a short poll interval so faults are caught quickly:
+    set INTERVAL=30 in .env, then: systemctl restart dblcheck
 - Jira configured: JIRA_BASE_URL, JIRA_EMAIL, JIRA_API_TOKEN, JIRA_PROJECT_KEY
-- Dashboard running (optional but recommended for SC-1 through SC-4)
 
 Jira Logging Convention
 -----------------------
-Each scenario gets its own Jira ticket as a test record:
+Each scenario gets its own QA ticket as a test record (separate from the
+incident ticket dblCheck creates automatically):
   Summary: [dblCheck-QA] SC-X: <scenario name>
   Labels:  dblcheck, manual-qa
   Priority: Medium
 
-After running the scenario, add a comment to the ticket:
+After running the scenario, add a comment to the QA ticket:
   PASS or FAIL
-  Observed output (paste relevant terminal lines or note dashboard state)
+  Observed dashboard state and diagnosis output
   Any unexpected behavior
-
-This is separate from the incident ticket dblCheck creates automatically.
 
 Entry format
 ------------
-  Setup:    what to configure or break in the lab
-  Run:      the command to execute
-  Check:    what to verify (output, dashboard, auto-created Jira incident)
-  Jira:     expected Jira incident outcome for this run
-  Restore:  how to undo the fault before the next scenario
+  Setup:    what to configure or break on the device
+  Observe:  dashboard state transitions to watch for
+  Check:    what to verify in the validation table, diagnosis panel, and tool calls panel
+  Jira:     expected incident ticket outcome
+  Restore:  how to undo the fault; what the next validation cycle should show
 
 
-SC-1: Interface down and cascade
----------------------------------
-  Setup:    Shut the C1J-to-C2A link on both sides (interface admin down).
+SC-a: Cisco IOS-XE — EIGRP AS mismatch
+----------------------------------------
+  Setup:    On B2C, change the EIGRP autonomous system number to a value that
+            does not match B1C:
+              no router eigrp 10
+              router eigrp 99
+              network <B2C network>  (re-add the same network statements)
 
-  Run:      dblcheck --once
+  Observe:  Dashboard status dot turns yellow (Validating). After the collection
+            phase completes (~10–20s), the validation table populates and the
+            table collapses to a summary bar. The status dot turns blue (Diagnosing)
+            as the AI agent is invoked. Tool calls appear in the right panel;
+            reasoning streams in the left panel. Status returns to green (Completed).
 
-  Check:    - Terminal output shows INTERFACE_UP failures for C1J and C2A on that link.
-            - OSPF_NEIGHBOR failures appear on the same link (cascade from interface).
-            - Dashboard shows all failures; AI diagnosis section groups them under
-              one root cause ("interface admin-down") rather than diagnosing each
-              OSPF failure independently.
-            - incident.json is written with a jira_issue_key and a fingerprint.
-
-  Jira:     New incident ticket auto-created by dblCheck. Summary should read:
-              "dblCheck: N assertion failures — C1J, C2A"
-            Body contains the AI diagnosis text. Confirm the ticket appears in Jira
-            with labels "dblcheck" and "automated" and priority High.
-
-  Restore:  Bring the C1J-C2A interface back up on both sides.
-            Run dblcheck --once again to confirm all assertions pass and Jira
-            receives a resolution comment ("All dblCheck assertions now pass").
-            incident.json should be deleted after the clean run.
-
-
-SC-2: OSPF stuck adjacency (authentication mismatch)
-------------------------------------------------------
-  Setup:    Add OSPF MD5 authentication on D1C's interface toward C1J only:
-              ip ospf authentication message-digest
-              ip ospf message-digest-key 1 md5 SECRET
-            Leave C1J's side with no authentication configured.
-            This causes D1C to drop C1J's unauthenticated hellos; C1J receives
-            authenticated hellos it cannot validate. The adjacency stalls in INIT
-            rather than going fully down.
-
-  Run:      dblcheck --once
-
-  Check:    - OSPF_NEIGHBOR failure for D1C/C1J shows state INIT (not DOWN or FULL).
-            - Dashboard shows the failure on both devices.
-            - AI diagnosis queries OSPF state on both D1C and C1J, identifies the
-              one-sided auth config as the cause.
-
-  Jira:     New incident ticket (or comment on existing if a ticket is already open).
-            Body should reference both D1C and C1J and describe the authentication
-            mismatch. Confirm diagnosis does not misattribute the fault to C1J as
-            the "broken" side (CLAUDE.md: INIT means the problem is on the remote
-            side — check its OSPF interface config).
-
-  Restore:  Remove the authentication config from D1C's interface.
-
-
-SC-3: BGP session failure (AS number mismatch)
------------------------------------------------
-  Setup:    On E1C, change the remote-as for the BGP neighbor toward IAN to an
-            incorrect AS number (e.g. change 4040 to 9999).
-
-  Run:      dblcheck --once
-
-  Check:    - BGP_SESSION failure on E1C toward IAN; session shows Active state.
-            - Dashboard shows E1C and IAN as affected.
-            - AI diagnosis queries BGP state on both E1C and IAN, identifies the
-              AS number mismatch (E1C configured 9999, IAN expects 4040 or vice versa).
-
-  Jira:     New incident ticket naming both E1C and IAN in the summary.
-            Diagnosis body identifies the specific AS numbers that conflict.
-
-  Restore:  Restore the correct remote-as on E1C.
-
-
-SC-4: EIGRP neighbor lost (AS number mismatch)
-------------------------------------------------
-  Setup:    On B2C, change the EIGRP autonomous system number to a value that does
-            not match B1C (e.g. change AS 10 to AS 99).
-
-  Run:      dblcheck --once
-
-  Check:    - EIGRP_NEIGHBOR failure on both B1C (missing B2C) and B2C (missing B1C).
-            - AI diagnosis queries EIGRP state on both devices, identifies the
-              AS mismatch as the cause.
-            - No interface failure should appear — the interface between B1C and B2C
+  Check:    - Validation table shows EIGRP_NEIGHBOR failures for both B1C (B2C
+              missing from neighbor table) and B2C (B1C missing).
+            - No INTERFACE_UP failures — the physical link B1C:Eth0/2 ↔ B2C:Eth0/2
               is still up.
+            - AI diagnosis queries EIGRP on both B1C and B2C. Root cause identifies
+              the AS number mismatch (B2C running AS 99, B1C expects AS 10).
+            - Tool calls panel shows get_eigrp invocations for both B1C and B2C.
 
-  Jira:     New incident ticket listing B1C and B2C. Diagnosis body identifies the
-            EIGRP AS mismatch.
+  Jira:     New incident ticket auto-created. Summary: "dblCheck: N assertion
+            failures — B1C, B2C". Body contains the AI diagnosis. Confirm labels
+            "dblcheck" and "automated" and priority High.
 
-  Restore:  Restore the correct EIGRP AS number on B2C.
+  Restore:  Restore the correct EIGRP AS on B2C:
+              no router eigrp 99
+              router eigrp 10
+              network <same network statements>
+            Wait for the next validation cycle. Dashboard should show all assertions
+            passing. Jira ticket auto-resolved with comment:
+              "✅ All dblCheck assertions now pass. Failures resolved at <timestamp>."
 
 
-SC-5: Jira incident ticket lifecycle
+SC-b: Juniper JunOS — OSPF authentication mismatch
+-----------------------------------------------------
+  Setup:    On C1J, add OSPF MD5 authentication on the interface toward D1C only:
+              set protocols ospf area 0 interface et-0/0/4 authentication
+                md5 1 key SECRET
+              commit
+            Leave D1C's side with no authentication configured.
+            C1J will send authenticated hellos; D1C, not expecting auth, will reject
+            them. The adjacency stalls in INIT on D1C (receiving hellos it cannot
+            validate) and eventually drops on C1J.
+
+  Observe:  Status dot transitions yellow → blue. Tool calls panel shows the agent
+            querying OSPF on both C1J (Juniper) and D1C (Cisco).
+
+  Check:    - OSPF_NEIGHBOR failure for the C1J↔D1C pair; D1C shows C1J in INIT
+              state (not FULL or DOWN).
+            - Validation table shows failures on both C1J and D1C for this neighbor.
+            - AI diagnosis identifies the one-sided authentication as the root cause.
+              Per CLAUDE.md: INIT means hellos are received but not reciprocated —
+              the agent should attribute the problem to C1J's auth config, not D1C.
+            - Tool calls panel shows get_ospf queries to both devices.
+
+  Jira:     New incident ticket naming both C1J and D1C. Diagnosis body references
+            the authentication mismatch and identifies which side has the config.
+
+  Restore:  Remove the authentication from C1J:
+              delete protocols ospf area 0 interface et-0/0/4 authentication
+              commit
+            Wait for the next validation cycle; OSPF should return to FULL.
+
+
+SC-c: Arista EOS — Interface down and OSPF cascade
+----------------------------------------------------
+  Setup:    On A2A, administratively shut the interface toward D2B:
+              interface Ethernet2
+                shutdown
+
+  Observe:  After the validation cycle, the table shows multiple failures (interface
+            and OSPF). The AI agent is invoked. Watch the reasoning panel — the
+            agent should group the OSPF failures under the interface failure root
+            cause rather than diagnosing each one separately.
+
+  Check:    - INTERFACE_UP failures for A2A (Ethernet2) and D2B (1/1/3).
+            - OSPF_NEIGHBOR failures for A2A↔D2B (cascaded from the interface down).
+            - AI diagnosis identifies the admin-down interface as the single root cause
+              for all failures, not individual OSPF diagnoses.
+            - Tool calls panel shows get_interfaces (not just get_ospf) invoked first,
+              confirming the agent investigated the interface layer.
+
+  Jira:     New incident ticket listing A2A and D2B. Diagnosis body explains
+            the cascade: interface down caused the OSPF adjacency loss.
+
+  Restore:  Bring the interface back up on A2A:
+              interface Ethernet2
+                no shutdown
+            Confirm A2A:Ethernet2 re-establishes the OSPF adjacency to D2B.
+
+
+SC-d: Aruba AOS-CX — OSPF stuck in EXSTART (MTU mismatch)
+-----------------------------------------------------------
+  Setup:    On D2B, set a jumbo MTU on the interface toward C2A:
+              interface 1/1/6
+                mtu 9000
+            Leave C2A:eth2 at its default MTU (1500). The MTU mismatch prevents
+            OSPF Database Description packets from completing, stalling the
+            adjacency in EXSTART or EXCHANGE.
+
+  Observe:  Status dot transitions yellow → blue. The agent queries OSPF state
+            on both D2B and C2A; it should also query interface details to read
+            the MTU on each side.
+
+  Check:    - OSPF_NEIGHBOR failure for D2B↔C2A with state EXSTART or EXCHANGE.
+            - AI diagnosis identifies the MTU mismatch as the cause (per CLAUDE.md:
+              EXSTART/EXCHANGE means check MTU on both interfaces).
+            - Tool calls panel shows get_ospf and get_interfaces (or run_show for
+              interface MTU) invocations on both D2B and C2A.
+            - Diagnosis cites the specific MTU values observed on each side.
+
+  Jira:     New incident ticket naming D2B and C2A. Diagnosis body cites the
+            MTU values that conflict.
+
+  Restore:  Remove the custom MTU on D2B:
+              interface 1/1/6
+                no mtu
+            Wait for OSPF to re-establish to FULL on the D2B↔C2A link.
+
+
+SC-e: MikroTik RouterOS — OSPF interface removed (link stays up)
+-----------------------------------------------------------------
+  Setup:    On A1M, remove ether1 from the OSPF instance (the interface toward
+            D1C), but leave the physical interface admin-up:
+              /routing ospf interface
+              remove [find interface=ether1]
+            The IP link between A1M:ether1 and D1C:Ethernet0/1 remains up;
+            only OSPF stops running on it.
+
+  Observe:  The validation table shows only OSPF failures, no interface failures.
+            The AI agent is invoked. Tool calls should show OSPF queries to both
+            A1M and D1C; the agent should also check interface status to rule out
+            a physical problem.
+
+  Check:    - OSPF_NEIGHBOR failures for A1M↔D1C only — no INTERFACE_UP failures.
+            - Validation table shows the interface link is reported as up (PASS)
+              while only the OSPF neighbor assertion fails.
+            - AI diagnosis identifies that A1M has no OSPF configured on ether1
+              (not a hardware failure), distinguishing it from a physical-layer issue.
+            - Tool calls panel shows get_ospf and get_interfaces invocations for
+              both A1M and D1C.
+
+  Jira:     New incident ticket naming A1M and D1C. Diagnosis body notes the
+            interface is operationally up but OSPF is not running on it.
+
+  Restore:  Re-add ether1 to OSPF on A1M:
+              /routing ospf interface
+              add interface=ether1 area=<ospf-area>
+            Wait for the OSPF adjacency to A1M↔D1C to return to FULL.
+
+
+Extended: Jira Lifecycle Walkthrough
 --------------------------------------
-  This scenario walks through the full lifecycle of a dblCheck incident ticket:
-  creation, fingerprint caching, updates on changed failures, and resolution.
-  Use SC-1 (C1J-C2A link down) as the base fault.
+Use this walkthrough to verify fingerprint caching, comment updates, and
+auto-resolution. It is not a separate vendor test — use any scenario fault as a
+starting point. SC-c (A2A interface down) is recommended because its failure set
+is easy to expand.
 
   Step a — Initial failure, ticket created:
-    Setup:  Shut C1J-C2A link.
-    Run:    dblcheck --once
-    Check:  New Jira ticket created. incident.json written with jira_issue_key
-            and fingerprint. Note the issue key.
+    Inject the SC-c fault (shut A2A:Ethernet2).
+    After the next validation cycle: new Jira ticket created. Note the issue key.
 
-  Step b — Same failures, no Jira activity:
-    Run:    dblcheck --once (no change to the topology)
-    Check:  Terminal prints "Failures unchanged since last run — diagnosis skipped."
-            No new Jira ticket. No new comment on the existing ticket.
-            incident.json fingerprint unchanged.
+  Step b — Same failure set, no re-diagnosis:
+    Wait for another validation cycle (no topology changes).
+    Dashboard shows "Failure set unchanged — agent not invoked".
+    No new Jira ticket and no new comment on the existing ticket.
 
-  Step c — Add a related fault (fingerprint changes):
-    Setup:  Also shut the D1C-C1J link (additional interface down).
-    Run:    dblcheck --once
-    Check:  Fingerprint changes (more failures). dblCheck re-diagnoses and adds a
-            COMMENT to the SAME Jira ticket (not a new ticket). Comment includes
-            updated failure count and new diagnosis covering both links.
+  Step c — Add a second fault (fingerprint changes):
+    Also inject the SC-a fault (EIGRP AS mismatch on B2C).
+    After the next cycle: fingerprint changes, agent re-diagnoses.
+    A comment is added to the SAME Jira ticket — not a new ticket.
 
-  Step d — Add an unrelated fault (different protocol area):
-    Setup:  Additionally break BGP on E1C (wrong remote-as, as in SC-3).
-    Run:    dblcheck --once
-    Check:  Fingerprint changes again. Another comment added to the SAME Jira ticket.
-            Comment covers both the interface failures and the BGP failure.
+  Step d — Partial fix:
+    Restore only SC-c (no shutdown on A2A:Ethernet2). Leave SC-a active.
+    After the next cycle: another comment on the same ticket covering the
+    reduced failure set (only EIGRP now).
 
-  Step e — Partial fix (some failures remain):
-    Setup:  Restore C1J-C2A link; leave D1C-C1J down and BGP broken.
-    Run:    dblcheck --once
-    Check:  Fingerprint changes (fewer failures). Comment added to SAME Jira ticket
-            with reduced failure set diagnosis.
-
-  Step f — All clear:
-    Setup:  Restore all faults (D1C-C1J link up, BGP fixed on E1C).
-    Run:    dblcheck --once
-    Check:  All assertions pass. Jira receives a resolution comment on the SAME ticket:
-              "All dblCheck assertions now pass. Failures resolved at <timestamp>."
-            incident.json is deleted.
-            On the next run with no failures, no further Jira activity occurs.
-
-  Jira (per step):
-    a — ticket created with issue key NET-XXX (or your project prefix)
-    b — no Jira activity
-    c — comment added to NET-XXX (related failure expansion)
-    d — comment added to NET-XXX (unrelated failure added)
-    e — comment added to NET-XXX (partial resolution)
-    f — resolution comment added to NET-XXX; ticket can be closed manually
+  Step e — Full clear:
+    Restore SC-a (correct EIGRP AS on B2C).
+    After the next cycle: all assertions pass. Jira ticket auto-resolved with:
+      "✅ All dblCheck assertions now pass. Failures resolved at <timestamp>."
+    Subsequent clean runs produce no further Jira activity.

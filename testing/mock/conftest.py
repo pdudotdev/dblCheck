@@ -35,6 +35,7 @@ _settings_mod.PASSWORD = "test"
 _settings_mod.SSH_TIMEOUT_OPS = 30
 _settings_mod.SSH_RETRIES = 1
 _settings_mod.SSH_RETRY_DELAY = 2
+_settings_mod.SSH_MAX_CONCURRENT = 5
 sys.modules["core.settings"] = _settings_mod
 
 # core.logging_config — prevent logging side effects at import time
@@ -71,6 +72,8 @@ _transport_execute = AsyncMock(
     return_value={"raw": "", "cli_style": "ios", "device": "TEST"}
 )
 _transport_mod.execute_command = _transport_execute
+_transport_mod.open_device_session = AsyncMock()
+_transport_mod.close_device_session = AsyncMock()
 sys.modules["transport"] = _transport_mod
 
 # ── Step 4: Load legacy/INTENT.json as mock intent ────────────────────────────

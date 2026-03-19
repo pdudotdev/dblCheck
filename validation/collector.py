@@ -6,6 +6,8 @@ sequentially to avoid SSH session conflicts.
 import asyncio
 import logging
 
+from core.settings     import SSH_MAX_CONCURRENT
+from transport         import open_device_session, close_device_session
 from input_models.models import OspfQuery, BgpQuery, EigrpQuery, InterfacesQuery
 from tools.protocol    import get_ospf, get_bgp, get_eigrp
 from tools.operational import get_interfaces
@@ -20,6 +22,8 @@ from validation.normalizers import (
 
 log = logging.getLogger("dblcheck.validation.collector")
 
+_sem = asyncio.Semaphore(SSH_MAX_CONCURRENT)
+
 
 async def collect_state(assertions: list[Assertion]) -> dict[str, DeviceState]:
     """Query all devices referenced in assertions and return their operational state.
@@ -30,7 +34,7 @@ async def collect_state(assertions: list[Assertion]) -> dict[str, DeviceState]:
     if not plan:
         return {}
 
-    tasks = [_collect_device(device, queries) for device, queries in plan.items()]
+    tasks = [_collect_device_limited(device, queries) for device, queries in plan.items()]
     results = await asyncio.gather(*tasks, return_exceptions=True)
 
     state: dict[str, DeviceState] = {}
@@ -42,6 +46,11 @@ async def collect_state(assertions: list[Assertion]) -> dict[str, DeviceState]:
             state[device] = result
 
     return state
+
+
+async def _collect_device_limited(device: str, queries: set[str]) -> DeviceState:
+    async with _sem:
+        return await _collect_device(device, queries)
 
 
 def _plan_queries(assertions: list[Assertion]) -> dict[str, set[str]]:
@@ -66,57 +75,65 @@ def _plan_queries(assertions: list[Assertion]) -> dict[str, set[str]]:
 
 async def _collect_device(device: str, queries: set[str]) -> DeviceState:
     """Run all needed queries for one device sequentially."""
-    state = DeviceState()
+    try:
+        await open_device_session(device)
+    except Exception as e:
+        log.warning("%s: session open failed: %s — using per-command connections", device, e)
 
-    if "interfaces" in queries:
-        result = await get_interfaces(InterfacesQuery(device=device))
-        if "error" in result:
-            log.warning("%s interfaces: %s", device, result["error"])
-            state.errors.append(f"interfaces: {result['error']}")
-        else:
-            state.interfaces = normalize_interfaces(result)
-            log.debug("%s interfaces: %d entries", device, len(state.interfaces))
+    try:
+        state = DeviceState()
 
-    if "ospf_neighbors" in queries:
-        result = await get_ospf(OspfQuery(device=device, query="neighbors"))
-        if "error" in result:
-            log.warning("%s ospf neighbors: %s", device, result["error"])
-            state.errors.append(f"ospf_neighbors: {result['error']}")
-        else:
-            state.ospf_neighbors = normalize_ospf_neighbors(result)
-            log.debug("%s ospf neighbors: %d entries", device, len(state.ospf_neighbors))
+        if "interfaces" in queries:
+            result = await get_interfaces(InterfacesQuery(device=device))
+            if "error" in result:
+                log.warning("%s interfaces: %s", device, result["error"])
+                state.errors.append(f"interfaces: {result['error']}")
+            else:
+                state.interfaces = normalize_interfaces(result)
+                log.debug("%s interfaces: %d entries", device, len(state.interfaces))
 
-    if "ospf_details" in queries:
-        result = await get_ospf(OspfQuery(device=device, query="details"))
-        if "error" in result:
-            log.warning("%s ospf details: %s", device, result["error"])
-            state.errors.append(f"ospf_details: {result['error']}")
-        else:
-            # Also fetch running config to detect default-information originate,
-            # which is not present in 'show ip ospf' output.
-            config_result = await get_ospf(OspfQuery(device=device, query="config"))
-            config_raw = config_result.get("raw", "") if "error" not in config_result else ""
-            state.ospf_details = normalize_ospf_details(result, config_raw=config_raw)
-            log.debug("%s ospf details: router_id=%s default_orig=%s", device,
-                      state.ospf_details.get("router_id"),
-                      state.ospf_details.get("default_originate"))
+        if "ospf_neighbors" in queries:
+            result = await get_ospf(OspfQuery(device=device, query="neighbors"))
+            if "error" in result:
+                log.warning("%s ospf neighbors: %s", device, result["error"])
+                state.errors.append(f"ospf_neighbors: {result['error']}")
+            else:
+                state.ospf_neighbors = normalize_ospf_neighbors(result)
+                log.debug("%s ospf neighbors: %d entries", device, len(state.ospf_neighbors))
 
-    if "bgp_summary" in queries:
-        result = await get_bgp(BgpQuery(device=device, query="summary"))
-        if "error" in result:
-            log.warning("%s bgp summary: %s", device, result["error"])
-            state.errors.append(f"bgp_summary: {result['error']}")
-        else:
-            state.bgp_summary = normalize_bgp_summary(result)
-            log.debug("%s bgp summary: %d neighbors", device, len(state.bgp_summary))
+        if "ospf_details" in queries:
+            result = await get_ospf(OspfQuery(device=device, query="details"))
+            if "error" in result:
+                log.warning("%s ospf details: %s", device, result["error"])
+                state.errors.append(f"ospf_details: {result['error']}")
+            else:
+                # Also fetch running config to detect default-information originate,
+                # which is not present in 'show ip ospf' output.
+                config_result = await get_ospf(OspfQuery(device=device, query="config"))
+                config_raw = config_result.get("raw", "") if "error" not in config_result else ""
+                state.ospf_details = normalize_ospf_details(result, config_raw=config_raw)
+                log.debug("%s ospf details: router_id=%s default_orig=%s", device,
+                          state.ospf_details.get("router_id"),
+                          state.ospf_details.get("default_originate"))
 
-    if "eigrp_neighbors" in queries:
-        result = await get_eigrp(EigrpQuery(device=device, query="neighbors"))
-        if "error" in result:
-            log.warning("%s eigrp neighbors: %s", device, result["error"])
-            state.errors.append(f"eigrp_neighbors: {result['error']}")
-        else:
-            state.eigrp_neighbors = normalize_eigrp_neighbors(result)
-            log.debug("%s eigrp neighbors: %d entries", device, len(state.eigrp_neighbors))
+        if "bgp_summary" in queries:
+            result = await get_bgp(BgpQuery(device=device, query="summary"))
+            if "error" in result:
+                log.warning("%s bgp summary: %s", device, result["error"])
+                state.errors.append(f"bgp_summary: {result['error']}")
+            else:
+                state.bgp_summary = normalize_bgp_summary(result)
+                log.debug("%s bgp summary: %d neighbors", device, len(state.bgp_summary))
 
-    return state
+        if "eigrp_neighbors" in queries:
+            result = await get_eigrp(EigrpQuery(device=device, query="neighbors"))
+            if "error" in result:
+                log.warning("%s eigrp neighbors: %s", device, result["error"])
+                state.errors.append(f"eigrp_neighbors: {result['error']}")
+            else:
+                state.eigrp_neighbors = normalize_eigrp_neighbors(result)
+                log.debug("%s eigrp neighbors: %d entries", device, len(state.eigrp_neighbors))
+
+        return state
+    finally:
+        await close_device_session(device)

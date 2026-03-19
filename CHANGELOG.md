@@ -1,5 +1,30 @@
 # Changelog
 
+## [1.2.0] — 2026-03-19
+
+### Jira Incident Lifecycle
+
+- Auto-resolve tickets when all failures clear (transitions API with "done"/"resolve"/"close" matching, `JIRA_RESOLVE_TRANSITION` env var override, comment-only fallback)
+- Markdown-to-ADF formatting for Jira tickets and comments (headings, bold, inline code, code blocks)
+- Human-readable timestamps in resolution messages (`Mar 19, 2026 18:26 UTC` instead of ISO 8601)
+
+### Dashboard
+
+- Markdown-rendered diagnosis output (headings, bold labels, inline code highlighting via `marked.js` + `highlight.js`)
+- Diagnosis panel persistence across page refresh (session NDJSON replay for late joiners)
+
+### Lab Topology
+
+- Replaced 3 VyOS routers (A2V, A3V, DC1V) with Arista cEOS (A2A, A3A, DC1A)
+
+### Test Suite
+
+- Fixed 5 half-tests with missing return value assertions in tool layer tests
+- Removed 1 tautological test and 3 redundant tests
+- Strengthened 2 weak EIGRP unsupported-platform assertions
+
+---
+
 ## [1.1.0] — 2026-03-18
 
 ### Test Suite

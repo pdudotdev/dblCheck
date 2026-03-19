@@ -112,8 +112,8 @@ for name, info in sorted(d.items()):
 | Device | Platform | cli_style | Management IP | Location |
 |--------|----------|-----------|---------------|----------|
 | A1M | mikrotik_routeros | routeros | 172.20.20.201 | Access |
-| A2V | vyos_vyos | vyos | 172.20.20.202 | Access |
-| A3V | vyos_vyos | vyos | 172.20.20.203 | Access |
+| A2A | arista_eos | eos | 172.20.20.202 | Access |
+| A3A | arista_eos | eos | 172.20.20.203 | Access |
 | A4M | mikrotik_routeros | routeros | 172.20.20.204 | Access |
 | D1C | cisco_iosxe | ios | 172.20.20.205 | Distribution |
 | D2B | aruba_aoscx | aos | 172.20.20.206 | Distribution |
@@ -123,7 +123,7 @@ for name, info in sorted(d.items()):
 | E2C | cisco_iosxe | ios | 172.20.20.210 | Edge |
 | B1C | cisco_iosxe | ios | 172.20.20.211 | Local Branch |
 | B2C | cisco_iosxe | ios | 172.20.20.212 | Local Branch |
-| DC1V | vyos_vyos | vyos | 172.20.20.219 | Data Center |
+| DC1A | arista_eos | eos | 172.20.20.219 | Data Center |
 | IAN | cisco_iosxe | ios | 172.20.20.220 | ISP A |
 | IBN | cisco_iosxe | ios | 172.20.20.230 | ISP B |
 | X1C | cisco_iosxe | ios | 172.20.20.240 | Remote Branch |

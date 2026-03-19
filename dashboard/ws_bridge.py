@@ -159,6 +159,22 @@ def parse_ndjson_line(raw: str) -> list[dict]:
     return []
 
 
+def _replay_session_file(path: Path) -> list[dict]:
+    """Re-parse a completed session NDJSON file into UI events for late joiners."""
+    if not path.exists():
+        return []
+    events = []
+    _tool_inputs.clear()
+    try:
+        for line in path.read_text().splitlines():
+            line = line.strip()
+            if line:
+                events.extend(parse_ndjson_line(line))
+    except Exception as e:
+        log.warning("Could not replay session file %s: %s", path, e)
+    return events
+
+
 # ── Session file tail-follower ─────────────────────────────────────────────────
 
 async def _tail_session_file(path: Path) -> None:
@@ -311,7 +327,18 @@ async def watch_state_file() -> None:
                 except Exception:
                     pass
 
-            await _broadcast({"ui_type": "session_idle"})
+            idle_event: dict = {"ui_type": "session_idle"}
+            if state.get("diagnosis_skipped"):
+                idle_event["diagnosis_skipped"] = True
+                if state.get("jira_issue_key"):
+                    idle_event["jira_issue_key"] = state["jira_issue_key"]
+                if state.get("jira_base_url"):
+                    idle_event["jira_base_url"] = state["jira_base_url"]
+            if state.get("interval"):
+                idle_event["interval"] = state["interval"]
+            if state.get("next_run_at"):
+                idle_event["next_run_at"] = state["next_run_at"]
+            await _broadcast(idle_event)
 
         await asyncio.sleep(0.5)
 
@@ -425,10 +452,20 @@ async def ws_handler(websocket) -> None:
             except Exception:
                 pass
 
+        # Build buffer for late joiners.
+        # When idle with a completed session, always replay from disk — the
+        # in-memory EVENT_BUFFER is capped at 200 events and may have dropped
+        # early tool events in favour of the (larger) final reasoning text.
+        if (SESSION_STATE.get("state") == "idle"
+                and SESSION_STATE.get("session_file")):
+            buffer = _replay_session_file(Path(SESSION_STATE["session_file"]))
+        else:
+            buffer = list(EVENT_BUFFER)
+
         init_msg = {
             "ui_type": "init",
             "state": SESSION_STATE,
-            "buffer": list(EVENT_BUFFER),
+            "buffer": buffer,
             "last_run": last_run,
             "run_history": run_history,
         }

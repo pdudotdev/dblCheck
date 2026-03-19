@@ -18,3 +18,7 @@ SSH_TIMEOUT_OPS = 30   # Command execution — kept high for slow commands
 # SSH retry settings — applied to transient connection failures only.
 SSH_RETRIES     = 1   # One retry after initial failure (2 total); reduces worst-case per-call from 94s → 32s
 SSH_RETRY_DELAY = 2   # Seconds between retries
+
+# Max parallel device connections — prevents asyncio event loop starvation in daemon mode,
+# where the bridge polling loops share the event loop with SSH collection tasks.
+SSH_MAX_CONCURRENT = 5

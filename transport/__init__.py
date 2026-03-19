@@ -2,9 +2,23 @@
 import logging
 
 from core.inventory import devices
-from transport.ssh     import execute_ssh
+from transport.ssh     import execute_ssh, open_session as _ssh_open, close_session as _ssh_close
 
 log = logging.getLogger("dblcheck.transport")
+
+
+async def open_device_session(device_name: str) -> None:
+    """Open a cached SSH session for a device (used by collector for connection reuse)."""
+    device = devices.get(device_name)
+    if device and device.get("platform") != "vyos_vyos":
+        await _ssh_open(device)
+
+
+async def close_device_session(device_name: str) -> None:
+    """Close a cached SSH session for a device."""
+    device = devices.get(device_name)
+    if device:
+        await _ssh_close(device["host"])
 
 
 async def execute_command(device_name: str, cmd_or_action,

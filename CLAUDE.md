@@ -44,12 +44,15 @@ The description tells you exactly which protocol, device, and peer are involved.
 
 ## What to produce
 
-For each failure, write plain text formatted for a terminal — no markdown, no tables, no asterisks.
+Use a `## Heading` for each finding that names the affected device(s) and the protocol/interface involved.
 
-  Root cause: one or two sentences describing what is actually wrong.
+For each finding, include:
 
-  Evidence: the specific data you collected that supports that conclusion.
-  Reference device names and the values you observed.
+**Root cause:** one or two sentences describing what is actually wrong.
+
+**Evidence:** the specific data you collected that supports that conclusion.
+Reference device names and the values you observed.
+Use `inline code` for interface names, IP addresses, and protocol values.
 
 When multiple failures share the same root cause, present one combined finding
 that names all affected devices, rather than repeating the same explanation.

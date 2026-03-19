@@ -1,6 +1,6 @@
 # ✨ dblCheck
 
-[![Version](https://img.shields.io/badge/ver.-1.1-1a1a2e)](https://github.com/pdudotdev/dblCheck/releases/tag/1.1.0)
+[![Version](https://img.shields.io/badge/ver.-1.2-1a1a2e)](https://github.com/pdudotdev/dblCheck/releases/tag/1.2.0)
 ![License](https://img.shields.io/badge/license-BSL1.1-1a1a2e)
 [![Last Commit](https://img.shields.io/github/last-commit/pdudotdev/dblCheck?color=1a1a2e)](https://github.com/pdudotdev/dblCheck/commits/main/)
 
@@ -9,13 +9,13 @@
 | **Platforms** | ![Cisco IOS](https://img.shields.io/badge/Cisco_IOS-0d47a1) ![Cisco IOS-XE](https://img.shields.io/badge/Cisco_IOS--XE-0d47a1) ![Arista EOS](https://img.shields.io/badge/Arista_EOS-0d47a1) ![Juniper JunOS](https://img.shields.io/badge/Juniper_JunOS-0d47a1) ![Aruba AOS](https://img.shields.io/badge/Aruba_AOS-0d47a1) ![Vyatta VyOS](https://img.shields.io/badge/Vyatta_VyOS-0d47a1) ![MikroTik RouterOS](https://img.shields.io/badge/MikroTik_RouterOS-0d47a1) ![FRR](https://img.shields.io/badge/FRR-0d47a1) |
 | **Transport** | ![SSH](https://img.shields.io/badge/SSH%20CLI-1565c0) ![Scrapli](https://img.shields.io/badge/Scrapli-1565c0) |
 | **Integrations** | ![NetBox](https://img.shields.io/badge/NetBox-1976d2) ![HashiCorp Vault](https://img.shields.io/badge/HashiCorp_Vault-1976d2) ![Jira](https://img.shields.io/badge/Jira-1976d2) ![MCP](https://img.shields.io/badge/MCP-1976d2) |
-| **Avg. Cost per Agent Session** | ![Cost](https://img.shields.io/badge/%240.19-1e88e5) |
+| **Avg. Cost per Agent Session** | ![Cost](https://img.shields.io/badge/%240.15-1e88e5) |
 
 ## 📖 **Table of Contents**
 - 📜 **dblCheck**
   - [🔭 Overview](#-overview)
   - [🍀 Here's a Quick Demo](#-heres-a-quick-demo)
-  - [⭐ What's New in v1.1](#-whats-new-in-v11)
+  - [⭐ What's New in v1.2](#-whats-new-in-v12)
   - [⚒️ Core Tech Stack](#️-core-tech-stack)
   - [📋 Validation Scope](#-validation-scope)
   - [🛠️ Installation & Usage](#️-installation--usage)
@@ -59,7 +59,7 @@ Continuously checks **live network state against design intent** and invokes a C
 ## 🍀 Here's a Quick Demo
 - [x] *Demo video coming soon...*
 
-## ⭐ What's New in v1.1
+## ⭐ What's New in v1.2
 - [x] See [**CHANGELOG.md**](CHANGELOG.md)
  
 ## ⚒️ Core Tech Stack
@@ -187,10 +187,9 @@ Shows live validation results and streams AI diagnosis output when failures are 
 - [x] 16 devices defined in [**TOPOLOGY.yml**](TOPOLOGY.yml)
 - [x] 5 × Cisco IOL nodes (IOS)
 - [x] 3 × Cisco c8000v nodes (IOS-XE)
-- [x] 3 × Vyatta VyOS nodes
+- [x] 4 × Arista cEOS nodes
 - [x] 2 × MikroTik CHR nodes
 - [x] 1 × Juniper JunOS node
-- [x] 1 × Arista cEOS node
 - [x] 1 x Aruba AOS-CX node
 - [x] OSPF multi-area, EIGRP, BGP
 - [x] Device credentials stored in **Vault**

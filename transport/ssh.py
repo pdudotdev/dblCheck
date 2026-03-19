@@ -4,6 +4,7 @@ import logging
 import os
 
 from scrapli import Cli, AuthOptions, SessionOptions
+from scrapli.transport import Ssh2Options as TransportSsh2Options
 from scrapli.exceptions import OpenException
 from core.settings import (
     USERNAME, PASSWORD,
@@ -12,6 +13,36 @@ from core.settings import (
 from core.vault import get_secret
 
 log = logging.getLogger("dblcheck.transport.ssh")
+
+# ── Session cache (connection reuse within a device collection) ────────────────
+_sessions: dict[str, Cli] = {}
+
+
+async def open_session(device: dict, timeout_ops: int | None = None) -> None:
+    """Open and cache a persistent SSH session for a device (keyed by host)."""
+    key = device["host"]
+    if key in _sessions:
+        return
+    cli = _build_cli(device, timeout_ops)
+    try:
+        await cli.open_async()
+    except Exception:
+        try:
+            cli._free()
+        except Exception:
+            pass
+        raise
+    _sessions[key] = cli
+
+
+async def close_session(host: str) -> None:
+    """Close and remove a cached SSH session by host."""
+    cli = _sessions.pop(host, None)
+    if cli:
+        try:
+            await cli.close_async()
+        except Exception:
+            pass
 
 # Custom YAML definitions for platforms whose bundled scrapli2 definition
 # needs overrides (prompt patterns, mode definitions, failure indicators).
@@ -41,20 +72,43 @@ def _build_cli(device: dict, timeout_ops: int | None = None) -> Cli:
         auth = AuthOptions(username=username, password=password)
         session = SessionOptions(operation_timeout_s=op_timeout)
 
+    # VyOS per-command SSH connections time out via bin.Transport (system SSH binary + PTY)
+    # in daemon mode. Using libssh2 directly bypasses the PTY-based auth path that hangs.
+    transport = TransportSsh2Options() if platform == "vyos_vyos" else None
+
     return Cli(
         host=device["host"],
         definition_file_or_name=definition,
         auth_options=auth,
         session_options=session,
+        transport_options=transport,
     )
 
 
 async def execute_ssh(device: dict, command: str, timeout_ops: int | None = None) -> str:
     """Execute a show command via Scrapli SSH.
 
+    If a cached session exists for this device (opened by open_session), reuse it.
+    Otherwise falls back to a new connection per command with retry.
     Returns the raw CLI output string.
-    Retries up to SSH_RETRIES times on transient failures.
     """
+    key = device["host"]
+    cached = _sessions.get(key)
+
+    if cached:
+        try:
+            log.debug("SSH (cached) → %s: %s", device["host"], command)
+            result = await cached.send_input_async(input_=command)
+            return result.result
+        except Exception:
+            # Session went bad — evict and fall through to per-command connection
+            _sessions.pop(key, None)
+            try:
+                await cached.close_async()
+            except Exception:
+                pass
+
+    # Per-command connection flow with retry
     last_exc = None
     for attempt in range(1 + SSH_RETRIES):
         try:

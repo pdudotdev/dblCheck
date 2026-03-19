@@ -35,12 +35,12 @@ interface 1/1/2
     ip ospf 1 area 0.0.0.1
 interface 1/1/3
     no shutdown
-    description TO-A2V
+    description TO-A2A
     ip address 10.1.1.14/30
     ip ospf 1 area 0.0.0.1
 interface 1/1/4
     no shutdown
-    description TO-A3V                                         
+    description TO-A3A                                         
     ip address 10.1.1.22/30
     ip ospf 1 area 0.0.0.1
 interface 1/1/5

@@ -37,11 +37,10 @@ add action=remoteSyslog topics=netwatch,info
 set enabled=yes
 /system ntp client servers
 add address=172.20.20.1
-/certificate
-add name=lab-ca common-name=lab-ca days-valid=3650 key-size=2048 key-usage=key-cert-sign,crl-sign
-sign lab-ca
-add name=restconf-cert common-name=A1M days-valid=3650 key-size=2048 key-usage=digital-signature,key-encipherment,tls-server
-sign restconf-cert ca=lab-ca
-/ip service 
-set www-ssl certificate=restconf-cert disabled=no
-#
+# /certificate
+# add name=lab-ca common-name=lab-ca days-valid=3650 key-size=2048 key-usage=key-cert-sign,crl-sign
+# sign lab-ca
+# add name=restconf-cert common-name=A1M days-valid=3650 key-size=2048 key-usage=digital-signature,key-encipherment,tls-server
+# sign restconf-cert ca=lab-ca
+# /ip service 
+# set www-ssl certificate=restconf-cert disabled=no

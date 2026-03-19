@@ -1,4 +1,4 @@
-"""Populate NetBox from lab_configs/NETWORK.json and intent/INTENT.json.
+"""Populate NetBox from lab_configs/NETWORK.json and legacy/INTENT.json.
 
 Creates all required objects (sites, manufacturers, device types, platforms,
 device role, custom fields, devices, IP addresses) and assigns primary IPs.
@@ -26,7 +26,7 @@ from core.vault import get_secret
 load_dotenv()
 
 NETWORK_JSON = os.path.join(os.path.dirname(os.path.dirname(__file__)), "legacy", "NETWORK.json")
-INTENT_JSON  = os.path.join(os.path.dirname(os.path.dirname(__file__)), "intent", "legacy", "INTENT.json")
+INTENT_JSON  = os.path.join(os.path.dirname(os.path.dirname(__file__)), "legacy", "INTENT.json")
 
 MANUFACTURER_MAP = {
     "cisco_iosxe":      "Cisco",

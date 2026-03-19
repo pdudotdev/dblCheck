@@ -16,6 +16,7 @@ import fcntl
 import hashlib
 import json
 import os
+import re
 import shutil
 import signal
 import subprocess
@@ -37,9 +38,13 @@ log = logging.getLogger("dblcheck.cli")
 
 from validation.assertions import AssertionResult
 from validation.derivation import derive_assertions
-from validation.collector  import collect_state
 from validation.evaluator  import evaluate
 from validation.report     import format_text, format_run_dict
+# collector transitively imports core.inventory/netbox/vault/settings at module
+# scope; suppress the resulting INFO logs (startup banner shows the same info).
+logging.getLogger("dblcheck").setLevel(logging.WARNING)
+from validation.collector  import collect_state
+logging.getLogger("dblcheck").setLevel(logging.INFO)
 
 # ── Data directory paths ──────────────────────────────────────────────────────
 PROJECT_DIR  = _PROJECT_ROOT
@@ -124,10 +129,14 @@ INCIDENT_FILE = DATA_DIR / "incident.json"
 
 
 def _failure_fingerprint(failures: list) -> str:
-    """Stable hash of a failure set — used to detect when failures change between runs."""
+    """Stable hash of a failure set — used to detect when failures change between runs.
+
+    Hashes failure identity (device, type, expected) only — not actual values.
+    Actual values can fluctuate for stuck protocol states (e.g. EXSTART ↔ EXCHANGE)
+    without the root cause changing, which would otherwise cause redundant re-diagnosis.
+    """
     items = sorted(
-        (r.assertion.device, r.assertion.type.value,
-         str(r.assertion.expected), str(r.actual))
+        (r.assertion.device, r.assertion.type.value, str(r.assertion.expected))
         for r in failures
     )
     return hashlib.sha256(str(items).encode()).hexdigest()
@@ -279,13 +288,21 @@ async def _run(args) -> int:
         return 1
 
     try:
+        try:
+            existing = json.loads(STATE_FILE.read_text())
+        except Exception:
+            existing = {}
         _write_state({
             "state": "validating",
             "run_name": run_name,
             "started_at": datetime.now(timezone.utc).isoformat(),
+            **{k: v for k, v in existing.items()
+               if k in ("last_run", "last_run_file")},
         })
 
+        logging.getLogger("dblcheck").setLevel(logging.WARNING)
         intent = load_intent()
+        logging.getLogger("dblcheck").setLevel(logging.INFO)
         assertions = derive_assertions(intent)
 
         if not assertions:
@@ -317,7 +334,7 @@ async def _run(args) -> int:
         if not args.headless:
             print(format_text(results, duration, color=_USE_COLOR))
 
-        failures = [r for r in results if r.result != AssertionResult.PASS]
+        failures = [r for r in results if r.result == AssertionResult.FAIL]
 
         # ── Fingerprint — skip diagnosis when failure set is unchanged ─────────
         prev_incident: dict = {}
@@ -327,6 +344,8 @@ async def _run(args) -> int:
             except (OSError, json.JSONDecodeError):
                 pass
 
+        last_session_file = None
+        diagnosis_skipped = False
         if failures and not args.no_diagnose:
             fingerprint = _failure_fingerprint(failures)
             from core import jira_client as _jc
@@ -335,12 +354,14 @@ async def _run(args) -> int:
                             and _jc._is_configured())
 
             if fingerprint_match and not jira_pending:
+                diagnosis_skipped = True
                 log.info("Failures unchanged (fingerprint match) — skipping diagnosis")
                 if not args.headless:
                     print(_c("2", "  Failures unchanged since last run — diagnosis skipped."))
             else:
                 session_name = f"session-{ts}"
                 session_file = SESSIONS_DIR / f"{session_name}.ndjson"
+                last_session_file = session_file
                 _write_state({
                     "state": "diagnosing",
                     "run_name": run_name,
@@ -358,21 +379,32 @@ async def _run(args) -> int:
                     log.warning("Diagnosis produced no text — skipping incident handling")
 
         elif not failures and prev_incident.get("jira_issue_key"):
-            # All assertions pass — comment on the open ticket and clear incident state
+            # All assertions pass — resolve the ticket and clear incident state
             from core import jira_client
-            ts_now = datetime.now(timezone.utc).isoformat()
-            await jira_client.add_comment(
+            ts_now = datetime.now(timezone.utc).strftime("%b %d, %Y %H:%M UTC")
+            await jira_client.resolve_issue(
                 prev_incident["jira_issue_key"],
-                f"All dblCheck assertions now pass. Failures resolved at {ts_now}.",
+                f"✅ All dblCheck assertions now pass. Failures resolved at {ts_now}.",
             )
             INCIDENT_FILE.unlink(missing_ok=True)
 
-        _write_state({
+        idle_state = {
             "state": "idle",
             "last_run": run_name,
             "last_run_file": str(run_file),
             "completed_at": datetime.now(timezone.utc).isoformat(),
-        })
+        }
+        if last_session_file:
+            idle_state["session_file"] = str(last_session_file)
+        if diagnosis_skipped:
+            idle_state["diagnosis_skipped"] = True
+            jira_key = prev_incident.get("jira_issue_key")
+            if jira_key:
+                idle_state["jira_issue_key"] = jira_key
+            jira_base_url = os.getenv("JIRA_BASE_URL", "").rstrip("/")
+            if jira_base_url:
+                idle_state["jira_base_url"] = jira_base_url
+        _write_state(idle_state)
 
         return 0 if not failures else 2
 
@@ -423,21 +455,14 @@ def _diagnose(failures: list, session_path: Path, headless: bool = False) -> Non
         for r in failures
     )
 
-    if headless:
-        output_instructions = (
-            "Format your output using Markdown. "
-            "Use a `##` heading for each failure that includes the number and a short description of the device and what failed "
-            "(e.g. `## Failure 1 — C1C OSPF neighbor missing on GigabitEthernet2`). "
-            "Use **bold** for labels like **Root cause:** and **Evidence:**. "
-            "Use `inline code` for interface names, IP addresses, and timer values. "
-            "Use code blocks for raw device output excerpts."
-        )
-    else:
-        output_instructions = (
-            "Output plain text for a terminal — no markdown, no asterisks, no tables. "
-            "Use plain labels like 'Root cause:' and 'Evidence:'. "
-            "Indent continuation lines by 2 spaces."
-        )
+    output_instructions = (
+        "Format your output using Markdown. "
+        "Use a `##` heading for each failure that includes the number and a short description of the device and what failed "
+        "(e.g. `## Failure 1 — C1C OSPF neighbor missing on GigabitEthernet2`). "
+        "Use **bold** for labels like **Root cause:** and **Evidence:**. "
+        "Use `inline code` for interface names, IP addresses, and timer values. "
+        "Use code blocks for raw device output excerpts."
+    )
 
     prompt = (
         "The following dblCheck assertions FAILED on the live network:\n\n"
@@ -509,6 +534,10 @@ def _diagnose(failures: list, session_path: Path, headless: bool = False) -> Non
             stripped = ln.strip()
             if stripped and all(c == "`" for c in stripped):
                 return  # skip bare backtick fence lines
+            # Strip Markdown syntax for clean terminal display
+            ln = re.sub(r"^#{1,3}\s+", "", ln)      # ## heading → heading text
+            ln = ln.replace("**", "")                # **bold** → bold
+            ln = re.sub(r"`([^`]+)`", r"\1", ln)     # `code` → code
             if stripped.startswith("---") and stripped.endswith("---") and len(stripped) > 6:
                 print(_c("1", ln), flush=True)
             else:
