@@ -8,7 +8,7 @@ from validation.assertions import AssertionType
 from validation.derivation import derive_assertions
 
 
-_INTENT = json.loads((Path(__file__).parent.parent.parent / "legacy" / "INTENT.json").read_text())
+_INTENT = json.loads((Path(__file__).parent.parent.parent.parent / "legacy" / "INTENT.json").read_text())
 
 
 def test_derive_total_count():

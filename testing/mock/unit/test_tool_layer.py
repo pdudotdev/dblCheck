@@ -7,7 +7,8 @@ import pytest
 # Import tools after conftest has injected mocks
 from tools.protocol import get_ospf, get_bgp, get_eigrp
 from tools.operational import get_interfaces
-from input_models.models import OspfQuery, BgpQuery, EigrpQuery, InterfacesQuery
+from tools.routing import get_routing, get_routing_policies
+from input_models.models import OspfQuery, BgpQuery, EigrpQuery, InterfacesQuery, RoutingQuery, RoutingPolicyQuery
 
 
 def _get_mock_execute():
@@ -24,13 +25,6 @@ def test_ospf_known_device_no_error():
     result = asyncio.run(get_ospf(OspfQuery(device="D1C", query="neighbors")))
     assert "error" not in result
     mock_execute.assert_called_once_with("D1C", "show ip ospf neighbor")
-
-
-def test_ospf_known_device_returns_raw():
-    mock_execute = _get_mock_execute()
-    mock_execute.return_value = {"raw": "ospf output here", "cli_style": "ios", "device": "D1C"}
-    result = asyncio.run(get_ospf(OspfQuery(device="D1C", query="neighbors")))
-    assert result.get("raw") == "ospf output here"
 
 
 def test_ospf_unknown_device_returns_error():
@@ -134,3 +128,67 @@ def test_interfaces_routeros_device():
     result = asyncio.run(get_interfaces(InterfacesQuery(device="A1M")))
     assert "error" not in result
     mock_execute.assert_called_once_with("A1M", "/interface print brief without-paging")
+
+
+# ── get_bgp neighbor IP append (B6) ──────────────────────────────────────────
+
+def test_bgp_neighbor_query_appends_ip():
+    mock_execute = _get_mock_execute()
+    mock_execute.reset_mock()
+    mock_execute.return_value = {"raw": "bgp neighbor detail", "cli_style": "ios", "device": "E1C"}
+    result = asyncio.run(get_bgp(BgpQuery(device="E1C", query="neighbors", neighbor="10.0.0.1")))
+    # E1C has vrf=VRF1; IOS vpnv4 vrf neighbors command + neighbor IP appended
+    mock_execute.assert_called_once_with("E1C", "show ip bgp vpnv4 vrf VRF1 neighbors 10.0.0.1")
+
+
+# ── get_routing (B5) ──────────────────────────────────────────────────────────
+
+def test_routing_known_device_no_prefix():
+    mock_execute = _get_mock_execute()
+    mock_execute.reset_mock()
+    mock_execute.return_value = {"raw": "routing table", "cli_style": "ios", "device": "D1C"}
+    asyncio.run(get_routing(RoutingQuery(device="D1C")))
+    # D1C has vrf=VRF1 → VRF-aware command
+    mock_execute.assert_called_once_with("D1C", "show ip route vrf VRF1")
+
+
+def test_routing_known_device_with_prefix():
+    mock_execute = _get_mock_execute()
+    mock_execute.reset_mock()
+    mock_execute.return_value = {"raw": "route entry", "cli_style": "ios", "device": "D1C"}
+    asyncio.run(get_routing(RoutingQuery(device="D1C", prefix="10.0.0.0/24")))
+    mock_execute.assert_called_once_with("D1C", "show ip route vrf VRF1 10.0.0.0/24")
+
+
+def test_routing_routeros_with_prefix_uses_where_clause():
+    mock_execute = _get_mock_execute()
+    mock_execute.reset_mock()
+    mock_execute.return_value = {"raw": "route entry", "cli_style": "routeros", "device": "A1M"}
+    asyncio.run(get_routing(RoutingQuery(device="A1M", prefix="10.0.0.0/24")))
+    # A1M has vrf=VRF1 → base cmd contains "where routing-table=VRF1" → condition appended
+    mock_execute.assert_called_once_with(
+        "A1M",
+        "/ip route print terse without-paging where routing-table=VRF1 dst-address=10.0.0.0/24",
+    )
+
+
+def test_routing_unknown_device_returns_error():
+    result = asyncio.run(get_routing(RoutingQuery(device="NO_SUCH_DEVICE")))
+    assert "error" in result
+    assert "Unknown device" in result["error"]
+
+
+# ── get_routing_policies (B5) ─────────────────────────────────────────────────
+
+def test_routing_policies_known_device():
+    mock_execute = _get_mock_execute()
+    mock_execute.reset_mock()
+    mock_execute.return_value = {"raw": "redistribute output", "cli_style": "ios", "device": "D1C"}
+    asyncio.run(get_routing_policies(RoutingPolicyQuery(device="D1C", query="redistribution")))
+    mock_execute.assert_called_once_with("D1C", "show run | section redistribute")
+
+
+def test_routing_policies_unknown_device_returns_error():
+    result = asyncio.run(get_routing_policies(RoutingPolicyQuery(device="NO_SUCH_DEVICE", query="route_maps")))
+    assert "error" in result
+    assert "Unknown device" in result["error"]

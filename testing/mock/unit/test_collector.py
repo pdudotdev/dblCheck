@@ -1,8 +1,11 @@
-"""UT-009 — Collector query planner (_plan_queries)."""
+"""UT-009 — Collector query planner (_plan_queries) and _collect_device."""
+import asyncio
+import sys
+
 import pytest
 
 from validation.assertions import Assertion, AssertionType
-from validation.collector import _plan_queries
+from validation.collector import _plan_queries, _collect_device
 
 
 def _make(atype, device="R1"):
@@ -114,3 +117,66 @@ def test_plan_same_device_multiple_types():
 def test_plan_empty_assertions():
     plan = _plan_queries([])
     assert plan == {}
+
+
+# ── _collect_device ───────────────────────────────────────────────────────────
+# Tests the wiring between tool calls → normalizers → DeviceState.
+# The conftest mocks transport.execute_command so no SSH is needed.
+
+def _get_mock_execute():
+    return sys.modules["transport"].execute_command
+
+
+_IOS_INTF_RAW = (
+    "Interface              IP-Address      OK? Method Status                Protocol\n"
+    "GigabitEthernet2       10.0.0.1        YES NVRAM  up                   up\n"
+)
+
+_IOS_OSPF_NBR_RAW = (
+    "Neighbor ID     Pri   State           Dead Time   Address         Interface\n"
+    "11.11.11.11       1   FULL/DR         00:00:37    10.0.0.5        Ethernet1/3\n"
+)
+
+
+def test_collect_device_interfaces_populates_state():
+    mock = _get_mock_execute()
+    mock.reset_mock()
+    mock.return_value = {"raw": _IOS_INTF_RAW, "cli_style": "ios", "device": "D1C"}
+    state = asyncio.run(_collect_device("D1C", {"interfaces"}))
+    assert state.interfaces is not None
+    assert "GigabitEthernet2" in state.interfaces
+    assert state.interfaces["GigabitEthernet2"] == "up/up"
+    assert state.errors == []
+
+
+def test_collect_device_tool_error_propagates_to_state():
+    mock = _get_mock_execute()
+    mock.reset_mock()
+    mock.return_value = {"error": "SSH timeout", "device": "D1C"}
+    state = asyncio.run(_collect_device("D1C", {"interfaces"}))
+    assert state.interfaces is None
+    assert any("interfaces" in e for e in state.errors)
+
+
+def test_collect_device_ospf_neighbors_populates_state():
+    mock = _get_mock_execute()
+    mock.reset_mock()
+    mock.return_value = {"raw": _IOS_OSPF_NBR_RAW, "cli_style": "ios", "device": "D1C"}
+    state = asyncio.run(_collect_device("D1C", {"ospf_neighbors"}))
+    assert state.ospf_neighbors is not None
+    assert len(state.ospf_neighbors) == 1
+    assert state.ospf_neighbors[0]["neighbor_id"] == "11.11.11.11"
+
+
+def test_collect_device_multiple_queries_populates_multiple_fields():
+    mock = _get_mock_execute()
+    mock.reset_mock()
+    # Side effect: first call (interfaces), second call (ospf_neighbors)
+    mock.side_effect = [
+        {"raw": _IOS_INTF_RAW, "cli_style": "ios", "device": "D1C"},
+        {"raw": _IOS_OSPF_NBR_RAW, "cli_style": "ios", "device": "D1C"},
+    ]
+    state = asyncio.run(_collect_device("D1C", {"interfaces", "ospf_neighbors"}))
+    assert state.interfaces is not None
+    assert state.ospf_neighbors is not None
+    mock.side_effect = None  # reset for subsequent tests

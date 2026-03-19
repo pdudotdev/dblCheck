@@ -7,10 +7,17 @@ import json
 
 import pytest
 
-from validation.assertions import AssertionType, AssertionResult, DeviceState
+from validation.assertions import Assertion, AssertionType, AssertionResult, DeviceState
 from validation.derivation import derive_assertions
 from validation.evaluator import evaluate
 from validation.report import format_text, format_run_dict
+from validation.normalizers import (
+    normalize_interfaces,
+    normalize_ospf_neighbors,
+    normalize_ospf_details,
+    normalize_bgp_summary,
+    normalize_eigrp_neighbors,
+)
 
 
 # ── Minimal synthetic intent ──────────────────────────────────────────────────
@@ -123,6 +130,20 @@ def test_derive_minimal_default_originate():
     assert do[0].device == "R1"
 
 
+def test_derive_minimal_no_bgp_assertions():
+    # MINIMAL_INTENT has no BGP — derivation must not generate phantom BGP assertions
+    assertions = derive_assertions(MINIMAL_INTENT)
+    bgp = [a for a in assertions if a.type == AssertionType.BGP_SESSION]
+    assert len(bgp) == 0
+
+
+def test_derive_minimal_no_eigrp_assertions():
+    # MINIMAL_INTENT has no EIGRP — derivation must not generate phantom EIGRP assertions
+    assertions = derive_assertions(MINIMAL_INTENT)
+    eigrp = [a for a in assertions if a.type == AssertionType.EIGRP_NEIGHBOR]
+    assert len(eigrp) == 0
+
+
 # ── All-healthy scenario ──────────────────────────────────────────────────────
 
 def test_healthy_scenario_all_pass():
@@ -169,8 +190,8 @@ def test_broken_scenario_has_failures():
     state = _broken_state()
     results = evaluate(assertions, state)
     failed = [r for r in results if r.result == AssertionResult.FAIL]
-    # 2 interface_up + 2 ospf_neighbor + 1 ospf_default_originate = at least 5
-    assert len(failed) >= 5
+    # 2 interface_up + 2 ospf_neighbor + 1 ospf_default_originate = exactly 5
+    assert len(failed) == 5
 
 
 def test_broken_scenario_interface_fails():
@@ -328,6 +349,13 @@ def test_derive_bgp_eigrp_has_eigrp_neighbors():
     assert len(eigrp) == 2  # B1→B2 and B2→B1
 
 
+def test_derive_bgp_eigrp_no_ospf_assertions():
+    # BGP_EIGRP_INTENT has no OSPF — derivation must not generate phantom OSPF assertions
+    assertions = derive_assertions(BGP_EIGRP_INTENT)
+    ospf = [a for a in assertions if a.type == AssertionType.OSPF_NEIGHBOR]
+    assert len(ospf) == 0
+
+
 # ── BGP + EIGRP healthy scenario ──────────────────────────────────────────────
 
 def test_bgp_eigrp_healthy_all_pass():
@@ -376,3 +404,151 @@ def test_eigrp_neighbor_broken_evaluates_fail():
     eigrp_results = [r for r in results if r.assertion.type == AssertionType.EIGRP_NEIGHBOR]
     assert len(eigrp_results) == 2
     assert all(r.result == AssertionResult.FAIL for r in eigrp_results)
+
+
+# ── Normalizer → Evaluator contract tests ─────────────────────────────────────
+# These tests validate the data contract between normalizer output shapes and
+# evaluator expectations. If a normalizer renames a key, unit tests for each
+# module independently would still pass but the pipeline would break silently.
+# These tests catch that by piping real normalizer output into the evaluator.
+
+_IOS_INTF_RAW = """\
+Interface              IP-Address      OK? Method Status                Protocol
+GigabitEthernet1       192.168.1.1     YES NVRAM  administratively down down
+GigabitEthernet2       10.0.0.1        YES NVRAM  up                   up
+"""
+
+_IOS_OSPF_NBR_RAW = """\
+Neighbor ID     Pri   State           Dead Time   Address         Interface
+11.11.11.11       1   FULL/DR         00:00:37    10.0.0.5        Ethernet1/3
+"""
+
+_IOS_OSPF_DETAIL_RAW = """\
+ Routing Process "ospf 1" with ID 11.11.11.11
+ Start time: 00:01:13.232, Time elapsed: 1d05h
+
+    Area BACKBONE(0)
+        Number of interfaces in this area is 3
+    Area 1
+        It is a stub area
+        Number of interfaces in this area is 4
+"""
+
+_IOS_OSPF_DETAIL_DEFLT_RAW = """\
+ Routing Process "ospf 1" with ID 33.33.33.11
+ default-information originate always
+    Area BACKBONE(0)
+"""
+
+_IOS_BGP_SUMMARY_RAW = """\
+BGP router identifier 33.33.33.11, local AS number 1010
+BGP table version is 12, main routing table version 12
+
+Neighbor        V           AS MsgRcvd MsgSent   TblVer  InQ OutQ Up/Down  State/PfxRcd
+200.40.40.2     4         4040      15      14       12    0    0 00:10:30        5
+10.0.0.1        4         1010       0       0        0    0    0 00:00:10 Active
+"""
+
+_EIGRP_NBR_RAW = """\
+EIGRP-IPv4 Neighbors for AS(10)
+H   Address         Interface        Hold Uptime   SRTT   RTO  Q  Seq
+                                      (sec)         (ms)       Cnt Num
+0   10.10.10.1      Et0/1              13 00:05:32    3   100  0  3
+"""
+
+
+def test_contract_interface_normalizer_to_evaluator():
+    """normalize_interfaces output feeds correctly into INTERFACE_UP evaluator."""
+    normalized = normalize_interfaces({"raw": _IOS_INTF_RAW, "cli_style": "ios"})
+    ds = DeviceState(interfaces=normalized)
+    a = Assertion(
+        type=AssertionType.INTERFACE_UP, device="R1",
+        description="R1 GigabitEthernet2 should be up/up",
+        expected="up/up", interface="GigabitEthernet2",
+    )
+    results = evaluate([a], {"R1": ds})
+    assert results[0].result == AssertionResult.PASS
+    assert results[0].actual == "up/up"
+
+
+def test_contract_ospf_neighbor_normalizer_to_evaluator():
+    """normalize_ospf_neighbors output feeds correctly into OSPF_NEIGHBOR evaluator."""
+    normalized = normalize_ospf_neighbors({"raw": _IOS_OSPF_NBR_RAW, "cli_style": "ios"})
+    ds = DeviceState(ospf_neighbors=normalized)
+    a = Assertion(
+        type=AssertionType.OSPF_NEIGHBOR, device="R1",
+        description="R1 Ethernet1/3 OSPF neighbor should be FULL",
+        expected="FULL", interface="Ethernet1/3",
+    )
+    results = evaluate([a], {"R1": ds})
+    assert results[0].result == AssertionResult.PASS
+    assert results[0].actual == "FULL"
+
+
+def test_contract_ospf_router_id_normalizer_to_evaluator():
+    """normalize_ospf_details output feeds correctly into OSPF_ROUTER_ID evaluator."""
+    normalized = normalize_ospf_details({"raw": _IOS_OSPF_DETAIL_RAW, "cli_style": "ios"})
+    ds = DeviceState(ospf_details=normalized)
+    a = Assertion(
+        type=AssertionType.OSPF_ROUTER_ID, device="R1",
+        description="R1 OSPF router-id should be 11.11.11.11",
+        expected="11.11.11.11",
+    )
+    results = evaluate([a], {"R1": ds})
+    assert results[0].result == AssertionResult.PASS
+
+
+def test_contract_ospf_area_type_normalizer_to_evaluator():
+    """normalize_ospf_details area dict feeds correctly into OSPF_AREA_TYPE evaluator."""
+    normalized = normalize_ospf_details({"raw": _IOS_OSPF_DETAIL_RAW, "cli_style": "ios"})
+    ds = DeviceState(ospf_details=normalized)
+    a = Assertion(
+        type=AssertionType.OSPF_AREA_TYPE, device="R1",
+        description="R1 OSPF area 1 should be stub",
+        expected="stub", area="1",
+    )
+    results = evaluate([a], {"R1": ds})
+    assert results[0].result == AssertionResult.PASS
+
+
+def test_contract_ospf_default_orig_normalizer_to_evaluator():
+    """normalize_ospf_details default_originate flag feeds correctly into OSPF_DEFAULT_ORIG evaluator."""
+    normalized = normalize_ospf_details(
+        {"raw": _IOS_OSPF_DETAIL_DEFLT_RAW, "cli_style": "ios"},
+        config_raw="default-information originate always",
+    )
+    ds = DeviceState(ospf_details=normalized)
+    a = Assertion(
+        type=AssertionType.OSPF_DEFAULT_ORIG, device="R1",
+        description="R1 OSPF should originate default route",
+        expected=True,
+    )
+    results = evaluate([a], {"R1": ds})
+    assert results[0].result == AssertionResult.PASS
+
+
+def test_contract_bgp_session_normalizer_to_evaluator():
+    """normalize_bgp_summary output feeds correctly into BGP_SESSION evaluator."""
+    normalized = normalize_bgp_summary({"raw": _IOS_BGP_SUMMARY_RAW, "cli_style": "ios"})
+    ds = DeviceState(bgp_summary=normalized)
+    a = Assertion(
+        type=AssertionType.BGP_SESSION, device="R1",
+        description="R1 BGP session to 200.40.40.2 should be Established",
+        expected="Established", neighbor_ip="200.40.40.2",
+    )
+    results = evaluate([a], {"R1": ds})
+    assert results[0].result == AssertionResult.PASS
+    assert results[0].actual == "Established"
+
+
+def test_contract_eigrp_neighbor_normalizer_to_evaluator():
+    """normalize_eigrp_neighbors output feeds correctly into EIGRP_NEIGHBOR evaluator."""
+    normalized = normalize_eigrp_neighbors({"raw": _EIGRP_NBR_RAW, "cli_style": "ios"})
+    ds = DeviceState(eigrp_neighbors=normalized)
+    a = Assertion(
+        type=AssertionType.EIGRP_NEIGHBOR, device="R1",
+        description="R1 EIGRP neighbor on Et0/1 should be present",
+        expected="present", interface="Et0/1",
+    )
+    results = evaluate([a], {"R1": ds})
+    assert results[0].result == AssertionResult.PASS

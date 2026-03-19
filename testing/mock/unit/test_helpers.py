@@ -1,6 +1,7 @@
 """UT-012 — Helper functions: _error_response, _looks_like_ip, box drawing,
-_failure_fingerprint, _build_parser."""
+_failure_fingerprint, _build_parser, _safe, _extract_diagnosis_text."""
 import argparse
+import json
 
 import pytest
 
@@ -8,7 +9,10 @@ from tools import _error_response
 from validation.normalizers import _looks_like_ip
 
 # Import CLI helpers — conftest.py has mocked core.logging_config so setup_logging() is a no-op
-from cli.dblcheck import _box_top, _box_row, _box_bot, _failure_fingerprint, _build_parser
+from cli.dblcheck import (
+    _box_top, _box_row, _box_bot, _failure_fingerprint, _build_parser,
+    _safe, _extract_diagnosis_text,
+)
 from validation.assertions import (
     Assertion, AssertionType, AssertionResult, EvaluatedAssertion,
 )
@@ -180,4 +184,108 @@ def test_build_parser_default_no_diagnose_false():
     args = p.parse_args([])
     assert args.no_diagnose is False
 
+
+# ── _safe ──────────────────────────────────────────────────────────────────────
+
+def test_safe_passes_clean_text():
+    assert _safe("show ip ospf neighbor") == "show ip ospf neighbor"
+
+
+def test_safe_handles_none():
+    assert _safe(None) == ""
+
+
+def test_safe_strips_control_chars():
+    result = _safe("abc\x01\x1bdef")
+    assert "\x01" not in result
+    assert "\x1b" not in result
+    assert "abcdef" in result
+
+
+def test_safe_preserves_spaces_tabs_newlines():
+    result = _safe("line1\n  line2\ttabbed")
+    assert "line1" in result
+    assert "line2" in result
+    assert "\n" in result
+    assert "\t" in result
+
+
+def test_safe_truncates_at_500():
+    long_input = "A" * 600
+    result = _safe(long_input)
+    assert len(result) == 500
+
+
+def test_safe_converts_non_string():
+    assert _safe(12345) == "12345"
+
+
+# ── _extract_diagnosis_text ────────────────────────────────────────────────────
+
+def _make_ndjson(events: list[dict]) -> str:
+    return "\n".join(json.dumps(e) for e in events)
+
+
+def test_extract_diagnosis_text_basic(tmp_path):
+    session = tmp_path / "session.ndjson"
+    events = [
+        {"type": "stream_event", "event": {
+            "type": "content_block_delta",
+            "delta": {"type": "text_delta", "text": "Root cause: link is down."},
+        }},
+    ]
+    session.write_text(_make_ndjson(events))
+    result = _extract_diagnosis_text(session)
+    assert "Root cause: link is down." in result
+
+
+def test_extract_diagnosis_text_concatenates_deltas(tmp_path):
+    session = tmp_path / "session.ndjson"
+    events = [
+        {"type": "stream_event", "event": {"type": "content_block_delta",
+            "delta": {"type": "text_delta", "text": "Part one "}}},
+        {"type": "stream_event", "event": {"type": "content_block_delta",
+            "delta": {"type": "text_delta", "text": "Part two"}}},
+    ]
+    session.write_text(_make_ndjson(events))
+    result = _extract_diagnosis_text(session)
+    assert result == "Part one Part two"
+
+
+def test_extract_diagnosis_text_strips_narration(tmp_path):
+    session = tmp_path / "session.ndjson"
+    events = [
+        {"type": "stream_event", "event": {"type": "content_block_delta",
+            "delta": {"type": "text_delta", "text": "Preamble narration\n## Finding\nActual diagnosis"}}},
+    ]
+    session.write_text(_make_ndjson(events))
+    result = _extract_diagnosis_text(session)
+    assert result.startswith("## Finding")
+    assert "Preamble narration" not in result
+
+
+def test_extract_diagnosis_text_skips_malformed_lines(tmp_path):
+    session = tmp_path / "session.ndjson"
+    content = (
+        "not valid json\n"
+        + json.dumps({"type": "stream_event", "event": {
+            "type": "content_block_delta",
+            "delta": {"type": "text_delta", "text": "Good line"},
+        }})
+    )
+    session.write_text(content)
+    result = _extract_diagnosis_text(session)
+    assert result == "Good line"
+
+
+def test_extract_diagnosis_text_missing_file(tmp_path):
+    result = _extract_diagnosis_text(tmp_path / "nonexistent.ndjson")
+    assert result == ""
+
+
+def test_extract_diagnosis_text_empty_file(tmp_path):
+    session = tmp_path / "session.ndjson"
+    session.write_text("")
+    result = _extract_diagnosis_text(session)
+    assert result == ""
 

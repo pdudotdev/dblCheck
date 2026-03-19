@@ -1,7 +1,7 @@
 """
 Patch network-dependent modules via sys.modules before any project code is imported.
 
-Loaded by pytest before any test file in testing/unit/ or testing/integration/.
+Loaded by pytest before any test file in testing/mock/unit/ or testing/mock/integration/.
 All sys.modules injections happen at module level — before any test import.
 """
 import json
@@ -13,7 +13,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 # ── Project root on sys.path ───────────────────────────────────────────────────
-_ROOT = Path(__file__).resolve().parent.parent
+_ROOT = Path(__file__).resolve().parent.parent.parent
 if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 

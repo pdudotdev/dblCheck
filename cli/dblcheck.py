@@ -133,6 +133,17 @@ def _failure_fingerprint(failures: list) -> str:
     return hashlib.sha256(str(items).encode()).hexdigest()
 
 
+def _safe(value) -> str:
+    """Sanitize a value before embedding in the agent prompt.
+
+    Strips non-printable control characters (except spaces/tabs/newlines)
+    and truncates to a reasonable length to limit prompt injection surface.
+    """
+    s = str(value) if value is not None else ""
+    s = "".join(c for c in s if c >= " " or c in "\t\n")
+    return s[:500]
+
+
 def _extract_diagnosis_text(session_path: Path) -> str:
     """Extract the agent's diagnosis text from a completed session NDJSON file."""
     parts = []
@@ -406,16 +417,6 @@ def _diagnose(failures: list, session_path: Path, headless: bool = False) -> Non
     Dual-output: raw stream-json lines written to session_path (for dashboard),
     and parsed text/tool events printed to CLI (unless headless).
     """
-    def _safe(value) -> str:
-        """Sanitize a value before embedding in the agent prompt.
-
-        Strips non-printable control characters (except spaces/tabs/newlines)
-        and truncates to a reasonable length to limit prompt injection surface.
-        """
-        s = str(value) if value is not None else ""
-        s = "".join(c for c in s if c >= " " or c in "\t\n")
-        return s[:500]
-
     failure_lines = "\n".join(
         f"- [{r.assertion.device}] {r.assertion.description}\n"
         f"  Expected: {_safe(r.assertion.expected)}  Actual: {_safe(r.actual)}"

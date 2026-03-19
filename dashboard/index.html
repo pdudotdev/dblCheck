@@ -29,7 +29,7 @@
     background: var(--bg);
     color: var(--text);
     font-family: 'SF Mono', 'Consolas', 'Monaco', monospace;
-    font-size: 15px;
+    font-size: 16px;
     height: 100vh;
     display: flex;
     flex-direction: column;
@@ -49,7 +49,7 @@
   }
 
   #header .logo {
-    font-size: 17px;
+    font-size: 18px;
     font-weight: 700;
     color: var(--blue);
     letter-spacing: 0.5px;
@@ -60,7 +60,7 @@
     align-items: center;
     gap: 6px;
     color: var(--muted);
-    font-size: 14px;
+    font-size: 15px;
   }
   .meta-group .label { color: var(--muted); }
   .meta-group .value { color: var(--text); font-weight: 600; }
@@ -87,7 +87,7 @@
     100% { box-shadow: 0 0 0 0 rgba(88,166,255,0); }
   }
 
-  #ws-status { font-size: 13px; color: var(--muted); }
+  #ws-status { font-size: 14px; color: var(--muted); }
   #ws-status.error { color: var(--red); }
 
   #history-select {
@@ -95,7 +95,7 @@
     border: 1px solid var(--border);
     color: var(--text);
     font-family: inherit;
-    font-size: 13px;
+    font-size: 14px;
     padding: 3px 8px;
     border-radius: 3px;
     cursor: pointer;
@@ -109,7 +109,7 @@
     border: 1px solid var(--muted);
     color: var(--muted);
     font-family: inherit;
-    font-size: 13px;
+    font-size: 14px;
     font-weight: 700;
     letter-spacing: 0.5px;
     padding: 3px 10px;
@@ -166,7 +166,7 @@
     background: var(--surface);
     border-bottom: 1px solid var(--border);
     padding: 7px 14px;
-    font-size: 13px;
+    font-size: 14px;
     font-weight: 700;
     letter-spacing: 1px;
     color: var(--muted);
@@ -184,13 +184,13 @@
   table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 14px;
+    font-size: 15px;
   }
 
   thead th {
     background: var(--surface);
     color: var(--muted);
-    font-size: 12px;
+    font-size: 13px;
     font-weight: 700;
     letter-spacing: 0.8px;
     padding: 6px 12px;
@@ -216,17 +216,17 @@
   }
 
   .col-device { color: var(--orange); font-weight: 600; white-space: nowrap; }
-  .col-type   { color: var(--muted); font-size: 12px; white-space: nowrap; }
+  .col-type   { color: var(--muted); font-size: 13px; white-space: nowrap; }
   .col-desc   { color: var(--text); max-width: 340px; }
-  .col-expected { color: var(--muted); font-size: 13px; }
-  .col-actual   { font-size: 13px; }
+  .col-expected { color: var(--muted); font-size: 14px; }
+  .col-actual   { font-size: 14px; }
   tbody tr.fail  .col-actual { color: var(--red); }
   tbody tr.error .col-actual { color: var(--orange); }
   .col-result { white-space: nowrap; }
 
   .badge {
     display: inline-block;
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 700;
     letter-spacing: 0.6px;
     padding: 2px 6px;
@@ -242,7 +242,7 @@
     display: none;
     align-items: center;
     gap: 16px;
-    font-size: 13px;
+    font-size: 14px;
   }
   #summary-bar.visible { display: flex; }
   .summary-item { font-weight: 600; }
@@ -274,7 +274,7 @@
     background: var(--surface);
     border-bottom: 1px solid var(--border);
     padding: 7px 14px;
-    font-size: 13px;
+    font-size: 14px;
     font-weight: 700;
     letter-spacing: 1px;
     color: var(--muted);
@@ -288,7 +288,7 @@
     margin-left: auto;
     cursor: pointer;
     color: var(--muted);
-    font-size: 12px;
+    font-size: 13px;
     user-select: none;
     padding: 2px 6px;
     border: 1px solid var(--border);
@@ -328,8 +328,8 @@
     70%  { box-shadow: 0 0 0 6px rgba(63,185,80,0); }
     100% { box-shadow: 0 0 0 0 rgba(63,185,80,0); }
   }
-  #idle-overlay .idle-text { color: var(--muted); font-size: 17px; }
-  #idle-overlay .idle-sub  { color: var(--border); font-size: 13px; margin-top: -8px; }
+  #idle-overlay .idle-text { color: var(--muted); font-size: 18px; }
+  #idle-overlay .idle-sub  { color: var(--border); font-size: 14px; margin-top: -8px; }
 
   /* ── Reasoning panel ── */
   #reasoning-body { line-height: 1.6; }
@@ -339,7 +339,7 @@
     border: 1px solid var(--border);
     border-radius: 3px;
     padding: 1px 5px;
-    font-size: 14px;
+    font-size: 15px;
     color: var(--purple);
   }
   #reasoning-body pre {
@@ -349,13 +349,13 @@
     padding: 10px 12px;
     overflow-x: auto;
     margin-bottom: 10px;
-    font-size: 14px;
+    font-size: 15px;
   }
   #reasoning-body strong { color: var(--orange); }
-  #reasoning-body h1 { font-size: 16px; color: var(--blue); margin-bottom: 6px; margin-top: 10px; }
-  #reasoning-body h2 { font-size: 15px; color: var(--blue); margin-bottom: 6px; margin-top: 10px; }
-  #reasoning-body h3 { font-size: 14px; color: var(--blue); margin-bottom: 6px; margin-top: 10px; }
-  #reasoning-body table { border-collapse: collapse; margin-bottom: 10px; font-size: 14px; }
+  #reasoning-body h1 { font-size: 17px; color: var(--blue); margin-bottom: 6px; margin-top: 10px; }
+  #reasoning-body h2 { font-size: 16px; color: var(--blue); margin-bottom: 6px; margin-top: 10px; }
+  #reasoning-body h3 { font-size: 15px; color: var(--blue); margin-bottom: 6px; margin-top: 10px; }
+  #reasoning-body table { border-collapse: collapse; margin-bottom: 10px; font-size: 15px; }
   #reasoning-body th, #reasoning-body td { border: 1px solid var(--border); padding: 4px 8px; }
   #reasoning-body th { background: var(--surface); color: var(--blue); }
 
@@ -372,12 +372,12 @@
   .tool-entry { margin-bottom: 8px; border: 1px solid var(--border); border-radius: 5px; overflow: hidden; }
   .tool-header { padding: 7px 10px; cursor: pointer; display: flex; align-items: center; gap: 8px; user-select: none; background: var(--surface); }
   .tool-header:hover { background: #1c2128; }
-  .tool-icon { font-size: 14px; width: 16px; text-align: center; flex-shrink: 0; }
-  .tool-name { font-weight: 700; color: var(--blue); font-size: 14px; }
+  .tool-icon { font-size: 15px; width: 16px; text-align: center; flex-shrink: 0; }
+  .tool-name { font-weight: 700; color: var(--blue); font-size: 15px; }
   .tool-name.mcp { background: rgba(63,185,80,0.15); color: var(--green); border: 1px solid rgba(63,185,80,0.4); border-radius: 3px; padding: 1px 6px; }
-  .tool-device { color: var(--orange); font-size: 13px; font-weight: 600; }
-  .tool-args { color: var(--muted); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; }
-  .tool-status { margin-left: auto; font-size: 12px; font-weight: 700; flex-shrink: 0; }
+  .tool-device { color: var(--orange); font-size: 14px; font-weight: 600; }
+  .tool-args { color: var(--muted); font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; }
+  .tool-status { margin-left: auto; font-size: 13px; font-weight: 700; flex-shrink: 0; }
   .tool-status.pending { color: var(--yellow); }
   .tool-status.done    { color: var(--green); }
   .tool-status.error   { color: var(--red); }
@@ -385,15 +385,15 @@
   .tool-body.open { display: block; }
   .tool-section { padding: 8px 10px; border-bottom: 1px solid var(--border); }
   .tool-section:last-child { border-bottom: none; }
-  .tool-section-label { font-size: 12px; font-weight: 700; color: var(--muted); letter-spacing: 0.8px; margin-bottom: 5px; }
-  .tool-section pre { background: #1c2128; border-radius: 3px; padding: 8px 10px; overflow-x: auto; font-size: 13px; line-height: 1.5; white-space: pre-wrap; word-break: break-all; }
-  .tool-result-text { font-size: 14px; color: var(--green); line-height: 1.5; white-space: pre-wrap; word-break: break-all; max-height: 400px; overflow-y: auto; }
-  .tool-result-truncated { color: var(--muted); font-size: 13px; font-style: italic; margin-top: 6px; }
-  .show-more-btn { cursor: pointer; color: var(--blue); font-size: 13px; margin-top: 4px; display: inline-block; }
+  .tool-section-label { font-size: 13px; font-weight: 700; color: var(--muted); letter-spacing: 0.8px; margin-bottom: 5px; }
+  .tool-section pre { background: #1c2128; border-radius: 3px; padding: 8px 10px; overflow-x: auto; font-size: 14px; line-height: 1.5; white-space: pre-wrap; word-break: break-all; }
+  .tool-result-text { font-size: 15px; color: var(--green); line-height: 1.5; white-space: pre-wrap; word-break: break-all; max-height: 400px; overflow-y: auto; }
+  .tool-result-truncated { color: var(--muted); font-size: 14px; font-style: italic; margin-top: 6px; }
+  .show-more-btn { cursor: pointer; color: var(--blue); font-size: 14px; margin-top: 4px; display: inline-block; }
   .show-more-btn:hover { text-decoration: underline; }
 
   .copy-btn {
-    cursor: pointer; color: var(--muted); font-size: 12px; padding: 2px 6px;
+    cursor: pointer; color: var(--muted); font-size: 13px; padding: 2px 6px;
     border: 1px solid var(--border); border-radius: 3px; background: transparent;
     font-family: inherit; letter-spacing: 0.5px;
   }
@@ -461,8 +461,8 @@
   <div id="validation-section" class="full hidden">
     <div class="section-header">
       VALIDATION RESULTS
-      <span id="val-timestamp" style="color:var(--muted);font-size:12px;font-weight:400"></span>
-      <span id="val-duration"  style="color:var(--muted);font-size:12px;font-weight:400"></span>
+      <span id="val-timestamp" style="color:var(--muted);font-size:13px;font-weight:400"></span>
+      <span id="val-duration"  style="color:var(--muted);font-size:13px;font-weight:400"></span>
     </div>
     <!-- Full table (idle phase) -->
     <div id="validation-table-wrapper">

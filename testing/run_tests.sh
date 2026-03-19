@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # dblCheck Test Runner
 # Runs all test suites with stable IDs and tracks pass/fail per file.
+# Live device tests (LT-*) run only when NO_LAB=0.
 
 set -euo pipefail
 
@@ -24,6 +25,7 @@ RESET='\033[0m'
 
 PASS_COUNT=0
 FAIL_COUNT=0
+SKIP_COUNT=0
 declare -a FAILED_SUITES=()
 
 run_suite() {
@@ -55,22 +57,32 @@ echo "  Suite     File / Name                                       Status"
 echo "  ────────  ─────────────────────────────────────────────────  ──────"
 
 # ── Unit Tests ────────────────────────────────────────────────────────────────
-run_suite "UT-001" "testing/unit/test_normalizers_interfaces.py" "Interface normalizers (6 vendors)"
-run_suite "UT-002" "testing/unit/test_normalizers_ospf.py"        "OSPF normalizers + helpers"
-run_suite "UT-003" "testing/unit/test_normalizers_bgp.py"         "BGP summary normalizers"
-run_suite "UT-004" "testing/unit/test_normalizers_eigrp.py"       "EIGRP neighbor normalizer"
-run_suite "UT-005" "testing/unit/test_derivation.py"              "Assertion derivation"
-run_suite "UT-006" "testing/unit/test_evaluator.py"               "Evaluator (all 7 types)"
-run_suite "UT-007" "testing/unit/test_input_models.py"            "Pydantic input models"
-run_suite "UT-008" "testing/unit/test_platform_map.py"            "PLATFORM_MAP structure"
-run_suite "UT-009" "testing/unit/test_collector.py"               "Collector query planner"
-run_suite "UT-010" "testing/unit/test_report.py"                  "Report formatting"
-run_suite "UT-011" "testing/unit/test_tool_layer.py"              "Tool layer (known/unknown)"
-run_suite "UT-012" "testing/unit/test_helpers.py"                 "Helper functions"
+run_suite "UT-001" "testing/mock/unit/test_normalizers_interfaces.py" "Interface normalizers (6 vendors)"
+run_suite "UT-002" "testing/mock/unit/test_normalizers_ospf.py"        "OSPF normalizers + helpers"
+run_suite "UT-003" "testing/mock/unit/test_normalizers_bgp.py"         "BGP summary normalizers"
+run_suite "UT-004" "testing/mock/unit/test_normalizers_eigrp.py"       "EIGRP neighbor normalizer"
+run_suite "UT-005" "testing/mock/unit/test_derivation.py"              "Assertion derivation"
+run_suite "UT-006" "testing/mock/unit/test_evaluator.py"               "Evaluator (all 7 types)"
+run_suite "UT-007" "testing/mock/unit/test_input_models.py"            "Pydantic input models"
+run_suite "UT-008" "testing/mock/unit/test_platform_map.py"            "PLATFORM_MAP structure"
+run_suite "UT-009" "testing/mock/unit/test_collector.py"               "Collector query planner"
+run_suite "UT-010" "testing/mock/unit/test_report.py"                  "Report formatting"
+run_suite "UT-011" "testing/mock/unit/test_tool_layer.py"              "Tool layer (known/unknown)"
+run_suite "UT-012" "testing/mock/unit/test_helpers.py"                 "Helper functions"
 
 # ── Integration Tests ─────────────────────────────────────────────────────────
-run_suite "IT-001" "testing/integration/test_platform_coverage.py" "Platform coverage report"
-run_suite "IT-002" "testing/integration/test_end_to_end.py"         "End-to-end pipeline"
+run_suite "IT-001" "testing/mock/integration/test_platform_coverage.py" "Platform coverage report"
+run_suite "IT-002" "testing/mock/integration/test_end_to_end.py"         "End-to-end pipeline"
+
+# ── Live Device Tests (require lab) ───────────────────────────────────────────
+echo ""
+if [[ "${NO_LAB:-1}" == "0" ]]; then
+    echo "  ── Live Device Tests ──────────────────────────────────────────"
+    run_suite "LT-001" "testing/live/test_platform_coverage.py" "Platform coverage (6 vendors, real SSH)"
+else
+    printf "  ${YELLOW}Live tests skipped${RESET} (NO_LAB=1) — run with NO_LAB=0 to enable\n"
+    SKIP_COUNT=$((SKIP_COUNT + 1))
+fi
 
 # ── Summary ───────────────────────────────────────────────────────────────────
 TOTAL=$((PASS_COUNT + FAIL_COUNT))
@@ -79,10 +91,15 @@ echo "  ────────────────────────
 printf "  Suites: %d total  |  ${GREEN}%d passed${RESET}  |  " "$TOTAL" "$PASS_COUNT"
 
 if [[ $FAIL_COUNT -gt 0 ]]; then
-    printf "${RED}%d failed${RESET}\n" "$FAIL_COUNT"
+    printf "${RED}%d failed${RESET}" "$FAIL_COUNT"
 else
-    printf "${GREEN}%d failed${RESET}\n" "$FAIL_COUNT"
+    printf "${GREEN}%d failed${RESET}" "$FAIL_COUNT"
 fi
+
+if [[ $SKIP_COUNT -gt 0 ]]; then
+    printf "  |  ${YELLOW}%d skipped${RESET}" "$SKIP_COUNT"
+fi
+printf "\n"
 echo ""
 
 if [[ ${#FAILED_SUITES[@]} -gt 0 ]]; then
@@ -96,9 +113,11 @@ fi
 if [[ $FAIL_COUNT -eq 0 ]]; then
     printf "  ${GREEN}All $TOTAL suites passed.${RESET}\n"
     echo ""
-    # Show platform_coverage_results.md was generated
-    if [[ -f "$PROJECT_ROOT/testing/integration/platform_coverage_results.md" ]]; then
-        echo "  Coverage report: testing/integration/platform_coverage_results.md"
+    if [[ -f "$PROJECT_ROOT/testing/mock/integration/platform_coverage_results.md" ]]; then
+        echo "  Structural coverage : testing/mock/integration/platform_coverage_results.md"
+    fi
+    if [[ -f "$PROJECT_ROOT/testing/live/platform_coverage_results.md" ]]; then
+        echo "  Live device results : testing/live/platform_coverage_results.md"
     fi
     echo ""
     exit 0

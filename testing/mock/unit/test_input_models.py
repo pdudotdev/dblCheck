@@ -235,6 +235,32 @@ def test_show_blocks_non_show_non_ros():
         ShowCommand(device="D1C", command="debug ip ospf")
 
 
+def test_show_blocks_aaa():
+    with pytest.raises(ValidationError):
+        ShowCommand(device="D1C", command="show aaa")
+
+
+def test_show_blocks_snmp():
+    with pytest.raises(ValidationError):
+        ShowCommand(device="D1C", command="show snmp")
+
+
+def test_show_blocks_secret():
+    with pytest.raises(ValidationError):
+        ShowCommand(device="D1C", command="show secret")
+
+
+def test_show_blocks_null_byte():
+    with pytest.raises(ValidationError):
+        ShowCommand(device="D1C", command="show ip route\x00show run")
+
+
+@pytest.mark.parametrize("verb", ["remove", "disable", "enable", "reset", "move", "unset"])
+def test_show_blocks_routeros_dangerous_verbs(verb):
+    with pytest.raises(ValidationError):
+        ShowCommand(device="A1M", command=f"/interface {verb} ether1")
+
+
 # ── VRF injection in OspfQuery ────────────────────────────────────────────────
 
 def test_vrf_rejects_semicolon():
