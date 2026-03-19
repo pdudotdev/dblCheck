@@ -92,12 +92,14 @@ def test_eigrp_junos_device_not_supported():
     # C1J is JunOS — no eigrp in PLATFORM_MAP for junos
     result = asyncio.run(get_eigrp(EigrpQuery(device="C1J", query="neighbors")))
     assert "error" in result
+    assert "not supported" in result["error"].lower() or "EIGRP" in result["error"]
 
 
 def test_eigrp_routeros_device_not_supported():
     # A1M is RouterOS — no eigrp in PLATFORM_MAP for routeros
     result = asyncio.run(get_eigrp(EigrpQuery(device="A1M", query="neighbors")))
     assert "error" in result
+    assert "not supported" in result["error"].lower() or "EIGRP" in result["error"]
 
 
 # ── get_interfaces ────────────────────────────────────────────────────────────
@@ -137,6 +139,7 @@ def test_bgp_neighbor_query_appends_ip():
     mock_execute.reset_mock()
     mock_execute.return_value = {"raw": "bgp neighbor detail", "cli_style": "ios", "device": "E1C"}
     result = asyncio.run(get_bgp(BgpQuery(device="E1C", query="neighbors", neighbor="10.0.0.1")))
+    assert "error" not in result
     # E1C has vrf=VRF1; IOS vpnv4 vrf neighbors command + neighbor IP appended
     mock_execute.assert_called_once_with("E1C", "show ip bgp vpnv4 vrf VRF1 neighbors 10.0.0.1")
 
@@ -147,7 +150,8 @@ def test_routing_known_device_no_prefix():
     mock_execute = _get_mock_execute()
     mock_execute.reset_mock()
     mock_execute.return_value = {"raw": "routing table", "cli_style": "ios", "device": "D1C"}
-    asyncio.run(get_routing(RoutingQuery(device="D1C")))
+    result = asyncio.run(get_routing(RoutingQuery(device="D1C")))
+    assert "error" not in result
     # D1C has vrf=VRF1 → VRF-aware command
     mock_execute.assert_called_once_with("D1C", "show ip route vrf VRF1")
 
@@ -156,7 +160,8 @@ def test_routing_known_device_with_prefix():
     mock_execute = _get_mock_execute()
     mock_execute.reset_mock()
     mock_execute.return_value = {"raw": "route entry", "cli_style": "ios", "device": "D1C"}
-    asyncio.run(get_routing(RoutingQuery(device="D1C", prefix="10.0.0.0/24")))
+    result = asyncio.run(get_routing(RoutingQuery(device="D1C", prefix="10.0.0.0/24")))
+    assert "error" not in result
     mock_execute.assert_called_once_with("D1C", "show ip route vrf VRF1 10.0.0.0/24")
 
 
@@ -164,7 +169,8 @@ def test_routing_routeros_with_prefix_uses_where_clause():
     mock_execute = _get_mock_execute()
     mock_execute.reset_mock()
     mock_execute.return_value = {"raw": "route entry", "cli_style": "routeros", "device": "A1M"}
-    asyncio.run(get_routing(RoutingQuery(device="A1M", prefix="10.0.0.0/24")))
+    result = asyncio.run(get_routing(RoutingQuery(device="A1M", prefix="10.0.0.0/24")))
+    assert "error" not in result
     # A1M has vrf=VRF1 → base cmd contains "where routing-table=VRF1" → condition appended
     mock_execute.assert_called_once_with(
         "A1M",
@@ -184,7 +190,8 @@ def test_routing_policies_known_device():
     mock_execute = _get_mock_execute()
     mock_execute.reset_mock()
     mock_execute.return_value = {"raw": "redistribute output", "cli_style": "ios", "device": "D1C"}
-    asyncio.run(get_routing_policies(RoutingPolicyQuery(device="D1C", query="redistribution")))
+    result = asyncio.run(get_routing_policies(RoutingPolicyQuery(device="D1C", query="redistribution")))
+    assert "error" not in result
     mock_execute.assert_called_once_with("D1C", "show run | section redistribute")
 
 

@@ -38,12 +38,6 @@ def test_error_response_empty_message():
     assert resp["device"] == "R1"
 
 
-def test_error_response_has_error_key():
-    resp = _error_response("R1", "msg")
-    assert "error" in resp
-    assert resp["error"] == "msg"
-
-
 # ── _looks_like_ip ────────────────────────────────────────────────────────────
 
 @pytest.mark.parametrize("s", [
@@ -161,11 +155,6 @@ def test_failure_fingerprint_empty():
 
 
 # ── _build_parser ─────────────────────────────────────────────────────────────
-
-def test_build_parser_returns_parser():
-    p = _build_parser()
-    assert isinstance(p, argparse.ArgumentParser)
-
 
 def test_build_parser_no_diagnose():
     p = _build_parser()

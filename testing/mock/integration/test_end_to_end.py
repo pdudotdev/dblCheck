@@ -237,27 +237,6 @@ def test_broken_scenario_run_dict_has_failures():
     assert run_dict["summary"]["failed"] > 0
 
 
-# ── Run dict ──────────────────────────────────────────────────────────────────
-
-def test_run_dict_healthy():
-    assertions = derive_assertions(MINIMAL_INTENT)
-    state = _healthy_state()
-    results = evaluate(assertions, state)
-    d = format_run_dict(results, 0.5)
-    assert d["summary"]["failed"] == 0
-    assert d["summary"]["total"] == len(assertions)
-
-
-def test_run_dict_broken():
-    assertions = derive_assertions(MINIMAL_INTENT)
-    state = _broken_state()
-    results = evaluate(assertions, state)
-    d = format_run_dict(results, 0.5)
-    assert d["summary"]["failed"] > 0
-    assert "R1" in d["per_device"]
-    assert "R2" in d["per_device"]
-
-
 # ── BGP + EIGRP intent ────────────────────────────────────────────────────────
 # B1 peers with an external BGP neighbor.
 # B1 and B2 share an EIGRP link. No OSPF in this topology.
