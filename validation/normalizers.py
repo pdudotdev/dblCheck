@@ -6,6 +6,9 @@ Every parser converts vendor CLI output into the same normalized structure.
 import re
 import socket
 
+# Matches "It is a stub area" / "It is a NSSA" — shared across IOS and AOS-CX parsers.
+_RE_AREA_IS_STUB = re.compile(r"it\s+is\s+a\s+(stub|nssa)", re.IGNORECASE)
+
 
 # ─── Interfaces ──────────────────────────────────────────────────────────────
 
@@ -350,7 +353,7 @@ def _ospf_details_ios(raw: str, config_raw: str) -> dict:
             if m:
                 current_area = _area_id_to_int(m.group(1).strip(","))
             if current_area:
-                m2 = re.search(r"it\s+is\s+a\s+(stub|nssa)", line, re.IGNORECASE)
+                m2 = _RE_AREA_IS_STUB.search(line)
                 if m2:
                     out["areas"][current_area] = m2.group(1).lower()
                     current_area = None
@@ -385,6 +388,25 @@ def _ospf_details_eos(raw: str, config_raw: str) -> dict:
     for m in re.finditer(r"Area\s+(\S+)[^\n]*?(stub|nssa)", raw, re.IGNORECASE):
         area_id = _area_id_to_int(m.group(1).strip(",()\n"))
         out["areas"][area_id] = m.group(2).lower()
+
+    # Multi-line format: "Area <id>" on one line, "It is a stub area" on a later line
+    if not out["areas"]:
+        current_area = None
+        for line in raw.splitlines():
+            m = re.match(r"\s*Area\s+(\S+)", line, re.IGNORECASE)
+            if m:
+                current_area = _area_id_to_int(m.group(1).strip(",()\n"))
+            if current_area:
+                m2 = _RE_AREA_IS_STUB.search(line)
+                if m2:
+                    out["areas"][current_area] = m2.group(1).lower()
+                    current_area = None
+
+    # Final fallback: parse area types from running config
+    if not out["areas"] and config_raw:
+        for m in re.finditer(r"^\s*area\s+(\S+)\s+(stub|nssa)", config_raw, re.IGNORECASE | re.MULTILINE):
+            area_id = _area_id_to_int(m.group(1).strip("(),"))
+            out["areas"][area_id] = m.group(2).lower()
 
     supplement = config_raw or raw
     if "default-information originate" in supplement.lower():
@@ -443,7 +465,9 @@ def _ospf_details_aos(raw: str, config_raw: str) -> dict:
         area_id = _area_id_to_int(m.group(1).strip("(),\n"))
         out["areas"][area_id] = m.group(2).lower()
 
-    # Multi-line format: "Area  : <id>" on one line, "Area Type : Stub" on a later line
+    # Multi-line format: "Area <id>" on one line, area type on a later line.
+    # AOS-CX Virtual uses "It is a stub area" (same as IOS).
+    # Older AOS-CX firmware uses "Area Type : Stub".
     if not out["areas"]:
         current_area = None
         for line in raw.splitlines():
@@ -452,6 +476,8 @@ def _ospf_details_aos(raw: str, config_raw: str) -> dict:
                 current_area = _area_id_to_int(m.group(1).strip("(),\n"))
             if current_area:
                 m2 = re.search(r"area\s+type\s*:\s*(stub|nssa)", line, re.IGNORECASE)
+                if not m2:
+                    m2 = _RE_AREA_IS_STUB.search(line)
                 if m2:
                     out["areas"][current_area] = m2.group(1).lower()
                     current_area = None

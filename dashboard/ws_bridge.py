@@ -73,6 +73,8 @@ SESSION_STATE: dict = {"state": "idle"}
 
 # Pending tool inputs accumulated across content_block_delta chunks
 _tool_inputs: dict[int, dict] = {}
+# Set to True after the first thinking_delta in a session; reset per session
+_thinking_emitted: bool = False
 
 _MCP_PREFIX = "mcp__dblcheck__"
 
@@ -84,6 +86,17 @@ def _strip_tool_prefix(name: str) -> tuple[str, bool]:
     if name.startswith(_MCP_PREFIX):
         return name[len(_MCP_PREFIX):], True
     return name, False
+
+
+def _flatten_content(content) -> str:
+    """Flatten a tool result content value to a plain string.
+
+    Content may be a plain string or a list of {type, text} dicts (Anthropic
+    multi-part format).  Returns a single space-joined string in either case.
+    """
+    if isinstance(content, list):
+        return " ".join(c.get("text", "") for c in content if isinstance(c, dict))
+    return str(content)
 
 
 def parse_ndjson_line(raw: str) -> list[dict]:
@@ -103,6 +116,16 @@ def parse_ndjson_line(raw: str) -> list[dict]:
     if t == "result":
         return [{"ui_type": "session_end", "cost": obj.get("total_cost_usd")}]
 
+    if t == "user":
+        content_list = obj.get("message", {}).get("content", [])
+        events = []
+        for item in content_list:
+            if item.get("type") == "tool_result":
+                tool_use_id = item.get("tool_use_id", "")
+                events.append({"ui_type": "tool_result", "id": tool_use_id,
+                                "output": _flatten_content(item.get("content", ""))})
+        return events
+
     if t != "stream_event":
         return []
 
@@ -115,6 +138,11 @@ def parse_ndjson_line(raw: str) -> list[dict]:
             text = delta.get("text", "")
             if text:
                 return [{"ui_type": "reasoning", "text": text}]
+        elif delta.get("type") == "thinking_delta":
+            global _thinking_emitted
+            if not _thinking_emitted:
+                _thinking_emitted = True
+                return [{"ui_type": "reasoning_status", "status": "thinking"}]
         elif delta.get("type") == "input_json_delta":
             idx = ev.get("index", -1)
             partial = delta.get("partial_json", "")
@@ -133,11 +161,7 @@ def parse_ndjson_line(raw: str) -> list[dict]:
         elif cb.get("type") == "tool_result":
             tool_use_id = cb.get("tool_use_id", "")
             content = cb.get("content", "")
-            if isinstance(content, list):
-                content = " ".join(
-                    c.get("text", "") for c in content if isinstance(c, dict)
-                )
-            return [{"ui_type": "tool_result", "id": tool_use_id, "output": str(content)}]
+            return [{"ui_type": "tool_result", "id": tool_use_id, "output": _flatten_content(content)}]
 
     elif ev_type == "content_block_stop":
         idx = ev.get("index", -1)
@@ -163,8 +187,10 @@ def _replay_session_file(path: Path) -> list[dict]:
     """Re-parse a completed session NDJSON file into UI events for late joiners."""
     if not path.exists():
         return []
+    global _thinking_emitted
     events = []
     _tool_inputs.clear()
+    _thinking_emitted = False
     try:
         for line in path.read_text().splitlines():
             line = line.strip()
@@ -188,7 +214,9 @@ async def _tail_session_file(path: Path) -> None:
         log.warning("Session file never appeared: %s", path)
         return
 
+    global _thinking_emitted
     _tool_inputs.clear()
+    _thinking_emitted = False
     position = 0
 
     while True:

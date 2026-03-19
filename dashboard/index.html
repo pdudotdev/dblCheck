@@ -359,6 +359,13 @@
   #reasoning-body th, #reasoning-body td { border: 1px solid var(--border); padding: 4px 8px; }
   #reasoning-body th { background: var(--surface); color: var(--blue); }
 
+  #reasoning-thinking {
+    padding: 10px 14px;
+    color: var(--muted);
+    font-style: italic;
+    font-size: 14px;
+  }
+
   #cursor {
     display: inline-block;
     width: 8px; height: 14px;
@@ -506,6 +513,7 @@
         <span class="scroll-toggle" id="reasoning-lock-btn" onclick="toggleReasoningLock()">AUTO-SCROLL ON</span>
       </div>
       <div class="panel-body" id="reasoning-body"></div>
+      <div id="reasoning-thinking" style="display:none">Collecting data from devices…</div>
     </div>
     <div class="panel">
       <div class="panel-header">
@@ -564,7 +572,8 @@ function handleMessage(msg) {
     case "session_start":      onSessionStart(msg); break;
     case "session_idle":       onSessionIdle(msg); break;
     case "session_end":        onSessionEnd(msg); break;
-    case "reasoning":          appendReasoning(msg.text); break;
+    case "reasoning":          appendReasoning(msg.text); setReasoningStatus(null); break;
+    case "reasoning_status":   setReasoningStatus(msg.status); break;
     case "tool_start":         addToolEntry(msg.id, msg.tool, msg.is_mcp); break;
     case "tool_input_complete": updateToolInput(msg.id, msg.tool, msg.input); break;
     case "tool_result":        setToolResult(msg.id, msg.output); break;
@@ -823,6 +832,14 @@ function loadHistoryRun(runName) {
 }
 
 // ─── Reasoning panel ──────────────────────────────────────────────────────────
+function setReasoningStatus(status) {
+  // Once text has arrived the indicator is permanently hidden — skip the DOM work.
+  if (reasoningBuffer.length > 0) return;
+  const el = document.getElementById("reasoning-thinking");
+  if (!el) return;
+  el.style.display = status === "thinking" ? "" : "none";
+}
+
 function appendReasoning(text) {
   reasoningBuffer += text;
   if (!renderPending) {
