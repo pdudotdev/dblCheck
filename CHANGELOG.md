@@ -22,6 +22,7 @@
 - Fixed 5 half-tests with missing return value assertions in tool layer tests
 - Removed 1 tautological test and 3 redundant tests
 - Strengthened 2 weak EIGRP unsupported-platform assertions
+- 582 tests across 21 suites (19 unit + 2 integration): +99 tests covering vault client, WebSocket bridge, Jira ADF converter, NetBox loader, transport dispatcher, CLI orchestration gates, command validator evasion vectors, and `_safe()` injection sanitizer boundaries
 
 ---
 

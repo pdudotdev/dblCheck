@@ -87,8 +87,11 @@ def _box_bot() -> str:
     return f"  └{'─' * (_BW - 2)}┘"
 
 
-def load_intent() -> dict:
-    """Load network intent from NetBox config contexts."""
+def load_intent() -> dict | None:
+    """Load network intent from NetBox config contexts.
+
+    Returns None if intent is unavailable (NetBox unreachable or no config contexts).
+    """
     try:
         from core.netbox import load_intent as _netbox_intent
         intent = _netbox_intent()
@@ -96,11 +99,7 @@ def load_intent() -> dict:
             return intent
     except Exception as exc:
         log.warning("Intent loading failed: %s", exc)
-    print(
-        "Error: Intent not available — NetBox unreachable or no config contexts found.",
-        file=sys.stderr,
-    )
-    sys.exit(1)
+    return None
 
 
 def _ensure_data_dirs() -> None:
@@ -288,6 +287,7 @@ async def _run(args) -> int:
         return 1
 
     try:
+      try:
         try:
             existing = json.loads(STATE_FILE.read_text())
         except Exception:
@@ -303,6 +303,23 @@ async def _run(args) -> int:
         logging.getLogger("dblcheck").setLevel(logging.WARNING)
         intent = load_intent()
         logging.getLogger("dblcheck").setLevel(logging.INFO)
+        if intent is None:
+            if not args.headless:
+                print(
+                    "Error: Intent not available — NetBox unreachable or no config contexts found.",
+                    file=sys.stderr,
+                )
+            try:
+                existing = json.loads(STATE_FILE.read_text())
+            except Exception:
+                existing = {}
+            _write_state({
+                "state": "idle",
+                "error": "Intent not available",
+                **{k: v for k, v in existing.items()
+                   if k in ("last_run", "last_run_file")},
+            })
+            return 1
         assertions = derive_assertions(intent)
 
         if not assertions:
@@ -408,6 +425,23 @@ async def _run(args) -> int:
 
         return 0 if not failures else 2
 
+      except BaseException as _exc:
+        # Safety net: any unhandled exception must return the dashboard to idle.
+        try:
+            _existing: dict = {}
+            try:
+                _existing = json.loads(STATE_FILE.read_text())
+            except Exception:
+                pass
+            _write_state({
+                "state": "idle",
+                "error": str(_exc),
+                **{k: v for k, v in _existing.items()
+                   if k in ("last_run", "last_run_file")},
+            })
+        except Exception:
+            pass  # disk may be the reason we're here
+        raise
     finally:
         fcntl.flock(lock_fh, fcntl.LOCK_UN)
         lock_fh.close()

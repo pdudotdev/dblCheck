@@ -33,6 +33,23 @@ except ValueError:
         f"INTERVAL must be an integer number of seconds, got: {os.getenv('INTERVAL')!r}"
     )
 
+SUBPROCESS_TIMEOUT = 600  # seconds — hard watchdog for the validation subprocess
+
+# ── Stop support ──────────────────────────────────────────────────────────────
+_current_proc = None   # asyncio.subprocess.Process | None
+_stop_requested: bool = False
+
+
+def request_stop() -> bool:
+    """Terminate the current validation subprocess. Called from the bridge HTTP handler."""
+    global _stop_requested
+    if _current_proc is not None and _current_proc.returncode is None:
+        _stop_requested = True
+        _current_proc.terminate()
+        log.info("Stop requested — sent SIGTERM to validation subprocess")
+        return True
+    return False
+
 
 def _patch_scheduling_state() -> None:
     """Append interval and next_run_at to the idle state file for the dashboard."""
@@ -42,9 +59,32 @@ def _patch_scheduling_state() -> None:
         state["next_run_at"] = (
             datetime.now(timezone.utc) + timedelta(seconds=INTERVAL)
         ).isoformat()
-        _STATE_FILE.write_text(json.dumps(state))
-    except Exception:
-        pass  # state file may not exist on the very first run
+        tmp = _STATE_FILE.with_suffix(".json.tmp")
+        tmp.write_text(json.dumps(state))
+        tmp.rename(_STATE_FILE)
+    except Exception as e:
+        log.warning("Failed to patch scheduling state: %s", e)
+
+
+def _force_idle_state(error: str) -> None:
+    """Force the state file to idle — defense-in-depth when the subprocess dies abnormally."""
+    try:
+        existing: dict = {}
+        try:
+            existing = json.loads(_STATE_FILE.read_text())
+        except Exception:
+            pass
+        idle = {
+            "state": "idle",
+            "error": error,
+            **{k: v for k, v in existing.items()
+               if k in ("last_run", "last_run_file", "session_file")},
+        }
+        tmp = _STATE_FILE.with_suffix(".json.tmp")
+        tmp.write_text(json.dumps(idle))
+        tmp.rename(_STATE_FILE)
+    except Exception as e:
+        log.warning("Failed to force idle state: %s", e)
 
 
 async def _validation_loop() -> None:
@@ -57,6 +97,7 @@ async def _validation_loop() -> None:
     """
     log.info("Validation loop starting — interval %ds", INTERVAL)
     while True:
+        global _current_proc, _stop_requested
         proc = None
         try:
             log.info("Starting scheduled validation run")
@@ -65,7 +106,25 @@ async def _validation_loop() -> None:
                 str(_PROJECT_ROOT / "cli" / "dblcheck.py"),
                 "--headless",
             )
-            returncode = await proc.wait()
+            _current_proc = proc
+            try:
+                returncode = await asyncio.wait_for(proc.wait(), timeout=SUBPROCESS_TIMEOUT)
+            except asyncio.TimeoutError:
+                log.error("Validation subprocess timed out after %ds — terminating", SUBPROCESS_TIMEOUT)
+                proc.terminate()
+                try:
+                    await asyncio.wait_for(proc.wait(), timeout=5.0)
+                except asyncio.TimeoutError:
+                    proc.kill()
+                returncode = -1
+            _current_proc = None
+            if _stop_requested:
+                _stop_requested = False
+                _force_idle_state("Stopped by user")
+            elif returncode == -1:
+                _force_idle_state(
+                    f"Validation subprocess timed out after {SUBPROCESS_TIMEOUT}s"
+                )
             if returncode not in (0, 2):
                 log.warning("Validation subprocess exited with code %d", returncode)
         except asyncio.CancelledError:
@@ -88,7 +147,9 @@ async def _bridge() -> None:
     from websockets.asyncio.server import serve
     from dashboard.ws_bridge import (
         ws_handler, _http_handler, watch_state_file, PORT, HOST,
+        register_stop_callback,
     )
+    register_stop_callback(request_stop)
     log.info("Dashboard bridge starting on port %d", PORT)
     async with serve(ws_handler, HOST, PORT, process_request=_http_handler,
                      reuse_address=True):
@@ -96,15 +157,23 @@ async def _bridge() -> None:
         await watch_state_file()
 
 
+async def _supervise(name: str, coro_fn) -> None:
+    """Run a coroutine in a restart loop, logging and recovering from crashes."""
+    while True:
+        try:
+            await coro_fn()
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:
+            log.error("Coroutine %s crashed: %s — restarting in 10s", name, e)
+            await asyncio.sleep(10)
+
+
 async def main() -> None:
-    results = await asyncio.gather(
-        _bridge(),
-        _validation_loop(),
-        return_exceptions=True,
+    await asyncio.gather(
+        _supervise("bridge", _bridge),
+        _supervise("validation_loop", _validation_loop),
     )
-    for r in results:
-        if isinstance(r, Exception):
-            log.error("Coroutine failed: %s", r)
 
 
 if __name__ == "__main__":

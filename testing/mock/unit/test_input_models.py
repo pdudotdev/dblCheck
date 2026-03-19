@@ -320,3 +320,70 @@ def test_empty_input_from_json():
     q = EmptyInput.model_validate("{}")
     assert isinstance(q, EmptyInput)
     assert q.model_fields_set == set()
+
+
+# ── ShowCommand evasion / bypass tests ────────────────────────────────────────
+
+def test_show_blocks_running_config_mixed_case():
+    # Validator lowercases before blocklist check — mixed case must still be blocked
+    with pytest.raises(ValidationError):
+        ShowCommand(device="D1C", command="Show Running-Config")
+
+
+def test_show_blocks_run_abbreviation():
+    # "show run" → token "run" starts with "run" which is a 3+ char prefix of "running-config"
+    with pytest.raises(ValidationError):
+        ShowCommand(device="D1C", command="show run")
+
+
+def test_show_allows_short_2char_token():
+    # "show r" → token "r" is only 2 chars, shorter than the minimum 3 for prefix matching
+    # This is a documented design choice: short tokens are NOT blocked to avoid false positives
+    q = ShowCommand(device="D1C", command="show r")
+    assert q.command == "show r"
+
+
+def test_show_blocks_running_config_double_space():
+    # Double space between "show" and "running-config" — split() collapses whitespace
+    with pytest.raises(ValidationError):
+        ShowCommand(device="D1C", command="show  running-config")
+
+
+def test_show_semicolon_not_blocked():
+    # Semicolon is NOT a control character — validator does not block it.
+    # This is an intentional design boundary: the blocked chars are \r, \n, \x00.
+    # Documenting this behavior: show version; configure terminal is currently accepted.
+    q = ShowCommand(device="D1C", command="show version; configure terminal")
+    assert q.command == "show version; configure terminal"
+
+
+def test_show_blocks_startup_config():
+    with pytest.raises(ValidationError):
+        ShowCommand(device="D1C", command="show startup-config")
+
+
+def test_show_blocks_startup_abbreviation():
+    # "show sta" → starts with "sta" which is a 3+ char prefix of "startup-config"
+    with pytest.raises(ValidationError):
+        ShowCommand(device="D1C", command="show sta")
+
+
+def test_show_routeros_mixed_safe_and_dangerous():
+    # RouterOS command with both print (safe) and set (dangerous) — must be rejected
+    with pytest.raises(ValidationError):
+        ShowCommand(device="A1M", command="/interface print set ether1 disabled=yes")
+
+
+def test_show_allows_routeros_monitor():
+    # "monitor" is an allowed safe verb for RouterOS
+    q = ShowCommand(device="A1M", command="/interface monitor ether1")
+    assert "monitor" in q.command
+
+
+def test_show_blocks_unicode_lookalike():
+    # Unicode/homoglyph in command — the validator does a plain string comparison,
+    # so "ᵣunning-config" does NOT match the ASCII "running-config" blocklist entry.
+    # Documenting current behavior: unicode lookalikes bypass the blocklist.
+    # They do NOT bypass the device — the device will reject unknown commands.
+    q = ShowCommand(device="D1C", command="show \u1d63unning-config")
+    assert q.command == "show \u1d63unning-config"

@@ -37,4 +37,7 @@ async def get_interfaces(params: InterfacesQuery) -> dict:
 
 async def run_show(params: ShowCommand) -> dict:
     """Run a show command against a network device (SSH CLI only)."""
+    device = devices.get(params.device)
+    if not device:
+        return _error_response(params.device, f"Unknown device: {params.device}")
     return await execute_command(params.device, params.command.strip())

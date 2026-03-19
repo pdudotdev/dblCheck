@@ -102,6 +102,23 @@
     max-width: 220px;
   }
   #history-select option { background: var(--surface); }
+  #history-select:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  #stop-btn {
+    display: none;
+    background: #da3633;
+    color: #fff;
+    border: none;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 4px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    letter-spacing: 0.3px;
+  }
+  #stop-btn:hover { background: #f85149; }
+  #stop-btn.visible { display: inline-block; }
 
 
   /* ── Resize handle ── */
@@ -255,7 +272,8 @@
 
   #diagnosis-placeholder {
     color: var(--muted);
-    font-size: 14px;
+    font-size: 16px;
+    font-weight: 500;
     text-align: center;
   }
   #diagnosis-placeholder a { color: var(--blue); text-decoration: none; }
@@ -455,6 +473,8 @@
     <option value="">History</option>
   </select>
 
+  <button id="stop-btn" onclick="requestStop()" title="Stop current run">Stop</button>
+
   <div id="ws-status">Connecting…</div>
 </div>
 
@@ -555,7 +575,11 @@ function connect() {
   ws = new WebSocket(wsUrl);
   ws.onopen  = () => { setWsStatus("Connected", false); reconnectDelay = RECONNECT_BASE_MS; };
   ws.onmessage = (e) => { try { handleMessage(JSON.parse(e.data)); } catch {} };
-  ws.onclose = () => {
+  ws.onclose = (ev) => {
+    if (ev.code === 4001) {
+      setWsStatus("Unauthorized — check dashboard token", true);
+      return;
+    }
     setWsStatus(`Reconnecting in ${Math.round(reconnectDelay/1000)}s…`, true);
     setTimeout(connect, reconnectDelay);
     reconnectDelay = Math.min(reconnectDelay * 1.5, RECONNECT_MAX_MS);
@@ -582,6 +606,9 @@ function handleMessage(msg) {
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
 function handleInit(msg) {
+  clearDiagnosisPanels();
+  stopElapsedTimer();
+  stopCountdownTimer();
   if (msg.run_history) populateHistory(msg.run_history);
 
   const s = msg.state && msg.state.state;
@@ -591,7 +618,10 @@ function handleInit(msg) {
     onValidationStart(msg.state);
   } else if (s === "diagnosing") {
     onSessionStart(msg.state);
-  } else if (s === "idle") {
+  } else {
+    hideStopBtn();
+  }
+  if (s === "idle") {
     const hasReasoning = msg.buffer && msg.buffer.some(ev => ev.ui_type === "reasoning");
     if (hasReasoning) {
       // Completed diagnosis — show panes in active mode
@@ -622,6 +652,8 @@ function handleInit(msg) {
 // ─── Validation lifecycle ─────────────────────────────────────────────────────
 function onValidationStart(msg) {
   diagnosisCompleted = false;
+  document.getElementById("history-select").disabled = true;
+  showStopBtn();
   setStatus("Validating…", "validating");
   stopCountdownTimer();
   document.getElementById("hdr-elapsed-label").textContent = "ELAPSED";
@@ -664,6 +696,8 @@ function onValidationResults(msg) {
 function onSessionStart(msg) {
   // Collapse validation table to summary bar, activate diagnosis panels
   clearDiagnosisPanels();
+  document.getElementById("history-select").disabled = true;
+  showStopBtn();
   setStatus("Diagnosing", "diagnosing");
   sessionStartTime = msg.started_at ? new Date(msg.started_at) : new Date();
   startElapsedTimer();
@@ -673,6 +707,12 @@ function onSessionStart(msg) {
 
 function onSessionIdle(msg) {
   stopElapsedTimer();
+  document.getElementById("history-select").disabled = false;
+  hideStopBtn();
+  if (!diagnosisCompleted) {
+    const cursor = document.getElementById("cursor");
+    if (cursor) cursor.remove();
+  }
   // Start countdown timer if scheduling info available
   if (msg && msg.next_run_at) {
     document.getElementById("hdr-elapsed-label").textContent = "NEXT RUN";
@@ -705,6 +745,8 @@ function onSessionIdle(msg) {
 function onSessionEnd(msg) {
   diagnosisCompleted = true;
   stopElapsedTimer();
+  document.getElementById("history-select").disabled = false;
+  hideStopBtn();
   setStatus("Completed", "idle");
   if (msg.cost != null) {
     showMeta("hdr-cost-group", "hdr-cost", `$${msg.cost.toFixed(4)}`);
@@ -809,7 +851,12 @@ function populateHistory(runs) {
     const opt = document.createElement("option");
     opt.value = r.name;
     const s = r.summary || {};
-    opt.textContent = `${r.name.replace("run-", "")}  ${s.passed ?? 0}✓ ${s.failed ?? 0}✗`;
+    const ts = r.timestamp ? new Date(r.timestamp) : null;
+    const label = ts
+      ? ts.toLocaleDateString(undefined, { month: "short", day: "numeric" })
+        + ", " + ts.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })
+      : r.name.replace("run-", "");
+    opt.textContent = `${label}  ${s.passed ?? 0}✓ ${s.failed ?? 0}✗`;
     sel.appendChild(opt);
   });
 }
@@ -830,6 +877,18 @@ function loadHistoryRun(runName) {
   // Reset selector
   document.getElementById("history-select").value = "";
 }
+
+// ─── Stop button ──────────────────────────────────────────────────────────────
+function requestStop() {
+  const token = new URLSearchParams(location.search).get("token");
+  const qs = token ? '?token=' + encodeURIComponent(token) : '';
+  fetch('/api/stop' + qs, { method: 'POST' })
+    .then(r => { if (r.ok) setStatus("Stopping…", "idle"); })
+    .catch(() => {});
+}
+
+function showStopBtn() { document.getElementById("stop-btn").classList.add("visible"); }
+function hideStopBtn() { document.getElementById("stop-btn").classList.remove("visible"); }
 
 // ─── Reasoning panel ──────────────────────────────────────────────────────────
 function setReasoningStatus(status) {

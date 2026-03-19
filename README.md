@@ -43,7 +43,7 @@ Continuously checks **live network state against design intent** and invokes a C
 - [x] **HashiCorp Vault** - All secrets (device creds, NetBox token, Jira key etc.) stored in Vault
 - [x] **NetBox** - Network inventory and expected state loaded automatically
 - [x] **Jira** - Network state drift and deviations logged to Jira
-- [x] **489 tests** - 14 suites (12 unit + 2 integration)
+- [x] **582 tests** - 21 suites (19 unit + 2 integration)
 
 ▫️ **Supported models:**
 - [x] Haiku 4.5

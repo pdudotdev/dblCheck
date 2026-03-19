@@ -22,6 +22,7 @@ import json
 import logging
 import os
 import sys
+import time
 import urllib.parse
 from pathlib import Path
 
@@ -53,9 +54,19 @@ from core.vault import get_secret as _get_secret
 _DASHBOARD_TOKEN: str = _get_secret("dblcheck/dashboard", "token",
                                      fallback_env="DASHBOARD_TOKEN", quiet=True) or ""
 
-BUFFER_SIZE       = 200
+BUFFER_SIZE        = 200
 TAIL_POLL_INTERVAL = 0.1   # seconds
-RUN_HISTORY_MAX   = 20
+TAIL_MAX_DURATION  = 600   # seconds — abort tail if state never leaves "diagnosing"
+RUN_HISTORY_MAX    = 20
+
+# ── Stop callback (registered by daemon) ──────────────────────────────────────
+# Daemon registers request_stop() here so the HTTP handler can invoke it without
+# a circular import (daemon imports bridge, not the other way around).
+_stop_callback = None
+
+def register_stop_callback(fn) -> None:
+    global _stop_callback
+    _stop_callback = fn
 
 # ── Logging ───────────────────────────────────────────────────────────────────
 logging.basicConfig(
@@ -218,8 +229,12 @@ async def _tail_session_file(path: Path) -> None:
     _tool_inputs.clear()
     _thinking_emitted = False
     position = 0
+    tail_start = time.monotonic()
 
     while True:
+        if time.monotonic() - tail_start > TAIL_MAX_DURATION:
+            log.warning("Tail-follower timed out after %ds — stopping", TAIL_MAX_DURATION)
+            return
         if SESSION_STATE.get("state") != "diagnosing":
             # Drain remaining lines before stopping
             try:
@@ -448,6 +463,14 @@ def _http_handler(connection, request):
             headers = Headers({"Content-Type": "text/plain"})
             return Response(404, "Not Found", headers, b"Run not found")
 
+    if request.method == "POST" and clean_path == "/api/stop":
+        if _stop_callback and _stop_callback():
+            headers = Headers({"Content-Type": "application/json"})
+            return Response(200, "OK", headers, b'{"stopped": true}')
+        headers = Headers({"Content-Type": "application/json"})
+        return Response(409, "Conflict", headers,
+                        b'{"stopped": false, "reason": "nothing running"}')
+
     if clean_path == "/favicon.ico":
         return Response(204, "No Content", Headers({}), b"")
 
@@ -466,8 +489,10 @@ async def ws_handler(websocket) -> None:
 
     remote = websocket.remote_address
     log.info("WebSocket client connected: %s", remote)
-    CLIENTS.add(websocket)
     try:
+        # Build and send the init message BEFORE joining the broadcast group.
+        # This ensures each event reaches the client exactly once: either via
+        # the buffer snapshot below, or via live broadcast after CLIENTS.add().
         run_history = _get_run_history()
 
         # Include last run data for late joiners
@@ -498,6 +523,9 @@ async def ws_handler(websocket) -> None:
             "run_history": run_history,
         }
         await websocket.send(json.dumps(init_msg))
+
+        # Join broadcast group only after init is sent — new events from here on.
+        CLIENTS.add(websocket)
 
         async for _ in websocket:
             pass  # no commands accepted — dashboard is read-only
