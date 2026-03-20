@@ -104,7 +104,7 @@
 - `run_show` input validation: blocks sensitive commands (running-config, tech-support, aaa, crypto), rejects control characters to prevent multi-command injection, RouterOS verb allowlist (print, monitor only)
 - Agent guardrails via `settings.local.json`: denies .env reads, direct SSH, destructive shell commands (rm -rf, git push --force, git reset --hard)
 - Prompt sanitization: assertion values embedded in the diagnosis prompt are stripped of control characters and truncated
-- Data boundary directive in agent system prompt: device output treated as opaque data, not instructions
+- Data boundary directive in agent system prompt: device output treated as opaque data, not instructions (see [**agent_prompt.md**](metadata/about/agent_prompt.md)).
 
 ### NetBox Integration
 

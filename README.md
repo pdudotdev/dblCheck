@@ -1,6 +1,6 @@
 # ✨ dblCheck
 
-[![Version](https://img.shields.io/badge/ver.-1.2-1a1a2e)](https://github.com/pdudotdev/dblCheck/releases/tag/1.2.0)
+[![Version](https://img.shields.io/badge/ver.-1.2.0-1a1a2e)](https://github.com/pdudotdev/dblCheck/releases/tag/1.2.0)
 ![License](https://img.shields.io/badge/license-BSL1.1-1a1a2e)
 [![Last Commit](https://img.shields.io/github/last-commit/pdudotdev/dblCheck?color=1a1a2e)](https://github.com/pdudotdev/dblCheck/commits/main/)
 
@@ -9,7 +9,7 @@
 | **Platforms** | ![Cisco IOS](https://img.shields.io/badge/Cisco_IOS-0d47a1) ![Cisco IOS-XE](https://img.shields.io/badge/Cisco_IOS--XE-0d47a1) ![Arista EOS](https://img.shields.io/badge/Arista_EOS-0d47a1) ![Juniper JunOS](https://img.shields.io/badge/Juniper_JunOS-0d47a1) ![Aruba AOS](https://img.shields.io/badge/Aruba_AOS-0d47a1) ![Vyatta VyOS](https://img.shields.io/badge/Vyatta_VyOS-0d47a1) ![MikroTik RouterOS](https://img.shields.io/badge/MikroTik_RouterOS-0d47a1) ![FRR](https://img.shields.io/badge/FRR-0d47a1) |
 | **Transport** | ![SSH](https://img.shields.io/badge/SSH%20CLI-1565c0) ![Scrapli](https://img.shields.io/badge/Scrapli-1565c0) |
 | **Integrations** | ![NetBox](https://img.shields.io/badge/NetBox-1976d2) ![HashiCorp Vault](https://img.shields.io/badge/HashiCorp_Vault-1976d2) ![Jira](https://img.shields.io/badge/Jira-1976d2) ![MCP](https://img.shields.io/badge/MCP-1976d2) |
-| **Avg. Cost per Agent Session** | ![Cost](https://img.shields.io/badge/%240.15-1e88e5) |
+| **Avg. Cost per Agent Session** | ![Cost](https://img.shields.io/badge/%240.19-1e88e5) |
 
 ## 📖 **Table of Contents**
 - 📜 **dblCheck**
@@ -19,7 +19,7 @@
   - [⚒️ Core Tech Stack](#️-core-tech-stack)
   - [📋 Validation Scope](#-validation-scope)
   - [🛠️ Installation & Usage](#️-installation--usage)
-  - [🦾 Operating Modes](#-operating-modes)
+  - [🦾 Operating Mode](#-operating-mode)
   - [🔄 Test Network Topology](#-test-network-topology)
   - [⬆️ Planned Upgrades](#️-planned-upgrades)
   - [♻️ Repository Lifecycle](#️-repository-lifecycle)
@@ -53,8 +53,9 @@ Continuously checks **live network state against design intent** and invokes a C
 ▫️ **Operational Guardrails:**
 - [x] See [**guardrails.md**](metadata/about/guardrails.md)
 
-▫️ **Agent Prompt:**
-- [x] See [**agent_prompt.md**](metadata/about/agent_prompt.md)
+▫️ **Operational Costs:**
+- [x] Periodic network state validation: programmatic, no cost
+- [x] Agent diagnosis: **~$0.19 per run** (only on detected drift)
 
 ## 🍀 Here's a Quick Demo
 - [x] *Demo video coming soon...*
@@ -137,7 +138,7 @@ cp .env.example .env
 
 Option A - Anthropic account:
 ```
-claude login
+claude auth login
 ```
 Option B - API key via Vault.
 
@@ -148,7 +149,7 @@ claude mcp add dblcheck -s user -- /home/<user>/dbl/bin/python server/MCPServer.
 
 ## 🦾 Operating Mode
 
-### Daemon Mode
+### Daemon (systemd service)
 
 **dblCheck** runs as a **systemd daemon** that validates the network on a schedule and serves a live dashboard.
 
@@ -168,6 +169,8 @@ http://<IP|localhost>:5556
 Shows live validation results and streams AI diagnosis output when failures are found. Port is configurable via `DASHBOARD_PORT` in `.env`.
 
 ⚠️ **NOTE:** The daemon validates every 300 seconds by default. Change with `INTERVAL=<seconds>` in `.env`.
+
+> **Recommendation:** Runs are sequential — a new validation never starts while the previous one is still running. However, setting `INTERVAL` too low increases SSH load on network devices. Validation itself (polling devices and checking assertions) has **no API cost**. The AI diagnosis agent is only invoked when unexpected failures are detected — that is the only time API costs occur. For most environments, 120–300 seconds is a good range. Each run has a hard timeout of 600 seconds (10 minutes).
 
 ## 🔄 Test Network Topology
 
