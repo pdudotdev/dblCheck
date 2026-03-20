@@ -125,7 +125,7 @@ async def _validation_loop() -> None:
                 _force_idle_state(
                     f"Validation subprocess timed out after {SUBPROCESS_TIMEOUT}s"
                 )
-            if returncode not in (0, 2):
+            elif returncode not in (0, 2):
                 log.warning("Validation subprocess exited with code %d", returncode)
                 _force_idle_state(f"Validation failed (exit code {returncode})")
         except asyncio.CancelledError:

@@ -141,6 +141,20 @@ def _failure_fingerprint(failures: list) -> str:
     return hashlib.sha256(str(items).encode()).hexdigest()
 
 
+def _update_incident_ids(prev_incident: dict, fingerprint: str,
+                          current_ids: set) -> None:
+    """Update incident.json with a reduced failure set (no re-diagnosis needed)."""
+    incident = {
+        "fingerprint":    fingerprint,
+        "failure_ids":    sorted([list(x) for x in current_ids]),
+        "jira_issue_key": prev_incident.get("jira_issue_key"),
+        "diagnosed_at":   prev_incident.get("diagnosed_at"),
+    }
+    tmp = INCIDENT_FILE.with_suffix(".json.tmp")
+    tmp.write_text(json.dumps(incident, indent=2))
+    tmp.rename(INCIDENT_FILE)
+
+
 def _safe(value) -> str:
     """Sanitize a value before embedding in the agent prompt.
 
@@ -180,7 +194,7 @@ def _extract_diagnosis_text(session_path: Path) -> str:
 
 
 async def _handle_incident(failures: list, fingerprint: str,
-                            diagnosis_text: str) -> None:
+                            diagnosis_text: str, previous_ids=None) -> None:
     """Create or update the Jira incident ticket for the current failure set."""
     from core import jira_client
 
@@ -202,12 +216,32 @@ async def _handle_incident(failures: list, fingerprint: str,
             log.error("Jira ticket creation failed — will retry on next run")
             return
     else:
-        comment = f"Failure set changed ({len(failures)} failure{'s' if len(failures) != 1 else ''}). Updated diagnosis:\n\n{diagnosis_text}"
+        if previous_ids is not None:
+            current_set = set(
+                (r.assertion.device, r.assertion.type.value, str(r.assertion.expected))
+                for r in failures
+            )
+            delta_parts = []
+            new_count = len(current_set - previous_ids)
+            resolved_count = len(previous_ids - current_set)
+            if new_count:
+                delta_parts.append(f"{new_count} new")
+            if resolved_count:
+                delta_parts.append(f"{resolved_count} resolved")
+            delta = ", ".join(delta_parts) + ". " if delta_parts else ""
+            header = f"Failure set changed — {delta}{len(failures)} active now."
+        else:
+            header = f"Failure set changed ({len(failures)} failure{'s' if len(failures) != 1 else ''})."
+        comment = f"{header}\n\nUpdated diagnosis:\n\n{diagnosis_text}"
         await jira_client.add_comment(existing_key, comment)
         issue_key = existing_key
 
     incident = {
         "fingerprint":    fingerprint,
+        "failure_ids":    sorted(
+            [r.assertion.device, r.assertion.type.value, str(r.assertion.expected)]
+            for r in failures
+        ),
         "jira_issue_key": issue_key,
         "diagnosed_at":   datetime.now(timezone.utc).isoformat(),
     }
@@ -381,16 +415,51 @@ async def _run(args) -> int:
         diagnosis_error = None
         if failures and not args.no_diagnose:
             fingerprint = _failure_fingerprint(failures)
+            current_ids = set(
+                (r.assertion.device, r.assertion.type.value, str(r.assertion.expected))
+                for r in failures
+            )
             from core import jira_client as _jc
-            fingerprint_match = fingerprint == prev_incident.get("fingerprint")
             jira_pending = (not prev_incident.get("jira_issue_key")
                             and _jc._is_configured())
 
-            if fingerprint_match and not jira_pending:
+            # Compare against previous failure set
+            prev_id_list = prev_incident.get("failure_ids", [])
+            if prev_id_list:
+                previous_ids = set(tuple(x) for x in prev_id_list)
+                new_in_current = current_ids - previous_ids
+                resolved = previous_ids - current_ids
+                identical = (not new_in_current and not resolved)
+            else:
+                # Backward compat: no failure_ids stored → fall back to hash comparison
+                previous_ids = None
+                identical = (fingerprint == prev_incident.get("fingerprint"))
+                new_in_current = None  # unknown without stored ids
+
+            no_new_failures = identical or (new_in_current is not None and not new_in_current)
+
+            if no_new_failures and not jira_pending:
                 diagnosis_skipped = True
-                log.info("Failures unchanged (fingerprint match) — skipping diagnosis")
+                log.info("No new failures — skipping diagnosis%s",
+                         "" if identical else
+                         f" ({len(resolved)} resolved, {len(current_ids)} remain)")
                 if not args.headless:
-                    print(_c("2", "  Failures unchanged since last run — diagnosis skipped."))
+                    if identical:
+                        print(_c("2", "  Failures unchanged since last run — diagnosis skipped."))
+                    else:
+                        print(_c("2", f"  {len(resolved)} failure(s) resolved, "
+                                      f"{len(current_ids)} remain — diagnosis skipped."))
+
+                # Partial resolution: post Jira comment + sync incident.json
+                if not identical and prev_incident.get("jira_issue_key"):
+                    comment = (
+                        f"{len(resolved)} of {len(previous_ids)} failure(s) now resolved. "
+                        f"{len(current_ids)} still active.\n\nResolved:\n"
+                    )
+                    for dev, ftype, exp in sorted(resolved):
+                        comment += f"- [{dev}] {ftype} — expected: {exp}\n"
+                    await _jc.add_comment(prev_incident["jira_issue_key"], comment)
+                    _update_incident_ids(prev_incident, fingerprint, current_ids)
             else:
                 session_name = f"session-{ts}"
                 session_file = SESSIONS_DIR / f"{session_name}.ndjson"
@@ -407,7 +476,8 @@ async def _run(args) -> int:
                                          headless=args.headless)
                 diagnosis_text = _extract_diagnosis_text(session_file)
                 if diagnosis_text:
-                    await _handle_incident(failures, fingerprint, diagnosis_text)
+                    await _handle_incident(failures, fingerprint, diagnosis_text,
+                                           previous_ids=previous_ids)
                 else:
                     log.warning("Diagnosis produced no text — skipping incident handling")
                     diagnosis_error = "Diagnosis produced no output — check API credits or Claude CLI"

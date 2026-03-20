@@ -192,6 +192,26 @@ SC-e: MikroTik RouterOS — OSPF interface removed (link stays up)
             Wait for the OSPF adjacency to A1M↔D1C to return to FULL.
 
 
+SC-f: Stop button interrupts active diagnosis
+----------------------------------------------
+  Setup:    Inject any fault that triggers diagnosis (e.g. SC-a or SC-c).
+            Wait for the validation cycle to complete and diagnosis to begin
+            (status dot turns blue, tool calls start appearing in the right panel).
+
+  Action:   Click the Stop button in the dashboard header while tool calls
+            are still in progress.
+
+  Check:    - Dashboard status changes to "Stopping…" then returns to Idle.
+            - Claude process and all MCP child processes are terminated
+              (verify: ps aux | grep claude shows no orphaned processes).
+            - The NEXT RUN countdown restarts automatically for the normal interval.
+            - data/dashboard_state.json shows state: idle.
+
+  Restore:  No manual restore needed. The next scheduled validation cycle
+            runs automatically. If the fault is still present, diagnosis
+            will be re-invoked on that cycle.
+
+
 Extended: Jira Lifecycle Walkthrough
 --------------------------------------
 Use this walkthrough to verify fingerprint caching, comment updates, and
@@ -208,15 +228,31 @@ is easy to expand.
     Dashboard shows "Failure set unchanged — agent not invoked".
     No new Jira ticket and no new comment on the existing ticket.
 
-  Step c — Add a second fault (fingerprint changes):
+  Step c — Add a second fault (new failures detected):
     Also inject the SC-a fault (EIGRP AS mismatch on B2C).
-    After the next cycle: fingerprint changes, agent re-diagnoses.
+    After the next cycle: new failures are detected, agent re-diagnoses.
     A comment is added to the SAME Jira ticket — not a new ticket.
+    Comment header reads: "Failure set changed — N new. K active now."
+    followed by the updated diagnosis.
 
-  Step d — Partial fix:
-    Restore only SC-c (no shutdown on A2A:Ethernet2). Leave SC-a active.
-    After the next cycle: another comment on the same ticket covering the
-    reduced failure set (only EIGRP now).
+  Step c2 — Mixed change (new failures + some resolved simultaneously):
+    Restore SC-a (correct EIGRP AS on B2C), but at the same time inject
+    SC-d (MTU mismatch on D2B:1/1/6).
+    After the next cycle: EIGRP failures resolved, OSPF/MTU failures are new.
+    Agent re-diagnoses because new failures exist. Jira comment reads:
+    "Failure set changed — N new, M resolved. K active now."
+    followed by the updated diagnosis covering the new failures.
+
+  Step d — Partial fix (subset, no re-diagnosis):
+    Restore only SC-d (remove the MTU override on D2B:1/1/6). Leave any
+    remaining active fault in place so at least one failure persists.
+    After the next cycle: the remaining failures are a strict subset of
+    the previous set — no new failures detected.
+    Agent is NOT re-invoked. Dashboard shows "Failure set unchanged —
+    agent not invoked (see TICKET-KEY)".
+    A lightweight comment is posted to the Jira ticket:
+    "N of M failure(s) now resolved. K still active."
+    followed by a list of the resolved assertions.
 
   Step e — Full clear:
     Restore SC-a (correct EIGRP AS on B2C).

@@ -32,10 +32,10 @@ AI-assisted **network intent validation framework** for multi-vendor environment
 
 Continuously checks **live network state against design intent** and invokes a Claude agent to diagnose, explain, and document failures and inconsistencies between expected vs. actual state. 
 
-🔑 Therefore, **the key** is building and maintaining an up-to-date network intent schema - and **dblCheck** does the rest.
+🔑 Therefore, **the key** is having and maintaining an up-to-date network intent schema - and **dblCheck** does the rest.
 
 ▫️ **Key characteristics:**
-- [x] **Intent-driven validation** - Define expected state in NetBox config contexts, 
+- [x] **Intent-driven validation** - Define expected state in NetBox config contexts
 - [x] **AI root-cause diagnosis** - Claude agent investigates failures using 8 read-only MCP tools
 - [x] **Read-only** - Agent queries and investigates devices, never configures
 - [x] **Real-time dashboard** - Live validation results and streamed AI diagnosis
@@ -67,7 +67,7 @@ Continuously checks **live network state against design intent** and invokes a C
 | Tool | |
 |------|---|
 | Claude Agent | ✓ |
-| MCP (FastMCP) | ✓ |
+| FastMCP | ✓ |
 | Python | ✓ |
 | Scrapli | ✓ |
 | HashiCorp Vault | ✓ |
@@ -146,19 +146,11 @@ Option B - API key via Vault.
 claude mcp add dblcheck -s user -- /home/<user>/dbl/bin/python server/MCPServer.py
 ```
 
-## 🦾 Operating Modes
-
-### Interactive Mode
-
-- [x] **Run:**
-```
-dbl/bin/python cli/dblcheck.py                          # full validation
-dbl/bin/python cli/dblcheck.py --no-diagnose            # skip AI diagnosis
-```
+## 🦾 Operating Mode
 
 ### Daemon Mode
 
-dblCheck runs as a **systemd daemon** that validates the network on a schedule and serves a live dashboard.
+**dblCheck** runs as a **systemd daemon** that validates the network on a schedule and serves a live dashboard.
 
 ▫️ **Install the service:**
 ```
@@ -171,7 +163,7 @@ Detects your install path and user automatically - no manual editing required.
 
 ▫️ **Dashboard:**
 ```
-http://localhost:5556
+http://<IP|localhost>:5556
 ```
 Shows live validation results and streams AI diagnosis output when failures are found. Port is configurable via `DASHBOARD_PORT` in `.env`.
 
@@ -185,8 +177,8 @@ Shows live validation results and streams AI diagnosis output when failures are 
 
 ▫️ **Lab environment:**
 - [x] 16 devices defined in [**TOPOLOGY.yml**](TOPOLOGY.yml)
-- [x] 5 × Cisco IOL nodes (IOS)
-- [x] 3 × Cisco c8000v nodes (IOS-XE)
+- [x] 5 × Cisco IOS nodes
+- [x] 3 × Cisco IOS-XE nodes
 - [x] 4 × Arista cEOS nodes
 - [x] 2 × MikroTik CHR nodes
 - [x] 1 × Juniper JunOS node
