@@ -76,10 +76,16 @@ run_suite "UT-009" "testing/mock/unit/test_collector.py"               "Collecto
 run_suite "UT-010" "testing/mock/unit/test_report.py"                  "Report formatting"
 run_suite "UT-011" "testing/mock/unit/test_tool_layer.py"              "Tool layer (known/unknown)"
 run_suite "UT-012" "testing/mock/unit/test_helpers.py"                 "Helper functions"
+run_suite "UT-013" "testing/mock/unit/test_vault.py"                    "Vault client (cache, fallback, sentinel)"
+run_suite "UT-014" "testing/mock/unit/test_ws_bridge.py"                "WebSocket bridge (path traversal, NDJSON)"
+run_suite "UT-015" "testing/mock/unit/test_jira_client.py"              "Jira client (ADF, config gate)"
+run_suite "UT-016" "testing/mock/unit/test_netbox.py"                   "NetBox loader (devices, intent)"
+run_suite "UT-017" "testing/mock/unit/test_transport.py"                "Transport dispatcher (error wrapping)"
 
 # ── Integration Tests ─────────────────────────────────────────────────────────
 run_suite "IT-001" "testing/mock/integration/test_platform_coverage.py" "Platform coverage report"
 run_suite "IT-002" "testing/mock/integration/test_end_to_end.py"         "End-to-end pipeline"
+run_suite "IT-003" "testing/mock/integration/test_cli_orchestration.py"  "CLI orchestration (exit codes, gates)"
 
 # ── Live Device Tests (require lab) ───────────────────────────────────────────
 echo ""

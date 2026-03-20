@@ -36,6 +36,7 @@ _settings_mod.SSH_TIMEOUT_OPS = 30
 _settings_mod.SSH_RETRIES = 1
 _settings_mod.SSH_RETRY_DELAY = 2
 _settings_mod.SSH_MAX_CONCURRENT = 5
+_settings_mod.SSH_STRICT_HOST_KEY = False
 sys.modules["core.settings"] = _settings_mod
 
 # core.logging_config — prevent logging side effects at import time

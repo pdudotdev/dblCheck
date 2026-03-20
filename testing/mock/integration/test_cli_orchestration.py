@@ -34,6 +34,7 @@ sys.modules["core.settings"].SSH_MAX_CONCURRENT = 5
 sys.modules["core.settings"].SSH_TIMEOUT_OPS = 30
 sys.modules["core.settings"].SSH_RETRIES = 1
 sys.modules["core.settings"].SSH_RETRY_DELAY = 2
+sys.modules["core.settings"].SSH_STRICT_HOST_KEY = False
 sys.modules["core.logging_config"].setup_logging = lambda: None
 sys.modules["core.jira_client"]._is_configured = lambda: False
 sys.modules["core.jira_client"].create_issue = AsyncMock(return_value=None)
@@ -132,6 +133,13 @@ def test_run_exits_0_when_all_pass(tmp_path):
     from validation.assertions import AssertionResult
     passing_result = MagicMock()
     passing_result.result = AssertionResult.PASS
+    mock_assertion = MagicMock()
+    mock_assertions = [mock_assertion]
+    mock_state = {"R1": MagicMock()}
+
+    mock_derive = MagicMock(return_value=mock_assertions)
+    mock_collect = AsyncMock(return_value=mock_state)
+    mock_evaluate = MagicMock(return_value=[passing_result])
 
     with (
         patch.object(sys.modules["core.settings"], "USERNAME", "test"),
@@ -139,9 +147,9 @@ def test_run_exits_0_when_all_pass(tmp_path):
         patch.object(sys.modules["core.inventory"], "devices", {"R1": {"host": "10.0.0.1"}}),
         patch.object(sys.modules["core.inventory"], "inventory_source", "test"),
         patch.object(_cli, "load_intent", return_value={"routers": {"R1": {}}}),
-        patch.object(_cli, "derive_assertions", return_value=[MagicMock()]),
-        patch.object(_cli, "collect_state", new_callable=AsyncMock, return_value={}),
-        patch.object(_cli, "evaluate", return_value=[passing_result]),
+        patch.object(_cli, "derive_assertions", mock_derive),
+        patch.object(_cli, "collect_state", mock_collect),
+        patch.object(_cli, "evaluate", mock_evaluate),
         patch.object(_cli, "format_run_dict", return_value={"summary": {}, "assertions": [], "timestamp": "T", "duration_sec": 0.1}),
         patch.object(_cli, "format_text", return_value=""),
         patch.object(_cli, "DATA_DIR", tmp_path),
@@ -155,7 +163,12 @@ def test_run_exits_0_when_all_pass(tmp_path):
         (tmp_path / "runs").mkdir(exist_ok=True)
         (tmp_path / "sessions").mkdir(exist_ok=True)
         code = asyncio.run(_run(_args()))
+
     assert code == 0
+    # Verify pipeline stages were called and arguments flowed correctly
+    mock_derive.assert_called_once()
+    mock_collect.assert_called_once_with(mock_assertions)
+    mock_evaluate.assert_called_once_with(mock_assertions, mock_state)
 
 
 def test_run_exits_2_when_failures_present(tmp_path):
@@ -168,6 +181,13 @@ def test_run_exits_2_when_failures_present(tmp_path):
     failing_result.assertion.type = MagicMock()
     failing_result.assertion.type.value = "interface_up"
     failing_result.assertion.expected = "up/up"
+    mock_assertion = MagicMock()
+    mock_assertions = [mock_assertion]
+    mock_state = {"R1": MagicMock()}
+
+    mock_derive = MagicMock(return_value=mock_assertions)
+    mock_collect = AsyncMock(return_value=mock_state)
+    mock_evaluate = MagicMock(return_value=[failing_result])
 
     with (
         patch.object(sys.modules["core.settings"], "USERNAME", "test"),
@@ -175,9 +195,9 @@ def test_run_exits_2_when_failures_present(tmp_path):
         patch.object(sys.modules["core.inventory"], "devices", {"R1": {"host": "10.0.0.1"}}),
         patch.object(sys.modules["core.inventory"], "inventory_source", "test"),
         patch.object(_cli, "load_intent", return_value={"routers": {"R1": {}}}),
-        patch.object(_cli, "derive_assertions", return_value=[MagicMock()]),
-        patch.object(_cli, "collect_state", new_callable=AsyncMock, return_value={}),
-        patch.object(_cli, "evaluate", return_value=[failing_result]),
+        patch.object(_cli, "derive_assertions", mock_derive),
+        patch.object(_cli, "collect_state", mock_collect),
+        patch.object(_cli, "evaluate", mock_evaluate),
         patch.object(_cli, "format_run_dict", return_value={"summary": {}, "assertions": [], "timestamp": "T", "duration_sec": 0.1}),
         patch.object(_cli, "format_text", return_value=""),
         patch.object(_cli, "DATA_DIR", tmp_path),
@@ -191,7 +211,12 @@ def test_run_exits_2_when_failures_present(tmp_path):
         (tmp_path / "runs").mkdir(exist_ok=True)
         (tmp_path / "sessions").mkdir(exist_ok=True)
         code = asyncio.run(_run(_args()))
+
     assert code == 2
+    # Verify the assertions returned by derive_assertions were passed through the pipeline
+    mock_derive.assert_called_once()
+    mock_collect.assert_called_once_with(mock_assertions)
+    mock_evaluate.assert_called_once_with(mock_assertions, mock_state)
 
 
 # ── Fingerprint / diagnosis skip ──────────────────────────────────────────────

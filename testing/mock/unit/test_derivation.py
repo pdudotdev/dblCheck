@@ -13,7 +13,13 @@ _INTENT = json.loads((Path(__file__).parent.parent.parent.parent / "legacy" / "I
 
 def test_derive_total_count():
     result = derive_assertions(_INTENT)
+    # Snapshot of INTENT.json assertion count — update if intent changes.
+    # More importantly: verify each result is a real Assertion object with required fields.
     assert len(result) == 131
+    for a in result:
+        assert a.device, f"Assertion has no device: {a}"
+        assert a.type in AssertionType.__members__.values(), f"Unknown type: {a.type}"
+        assert a.expected is not None, f"Assertion has no expected value: {a}"
 
 
 def test_derive_contains_interface_type():

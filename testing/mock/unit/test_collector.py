@@ -147,6 +147,8 @@ def test_collect_device_interfaces_populates_state():
     assert "GigabitEthernet2" in state.interfaces
     assert state.interfaces["GigabitEthernet2"] == "up/up"
     assert state.errors == []
+    # Verify the correct command was actually dispatched — not just that the mock returned data
+    mock.assert_called_once_with("D1C", "show ip interface brief")
 
 
 def test_collect_device_tool_error_propagates_to_state():
@@ -166,12 +168,15 @@ def test_collect_device_ospf_neighbors_populates_state():
     assert state.ospf_neighbors is not None
     assert len(state.ospf_neighbors) == 1
     assert state.ospf_neighbors[0]["neighbor_id"] == "11.11.11.11"
+    # Verify the correct command was dispatched
+    mock.assert_called_once_with("D1C", "show ip ospf neighbor")
 
 
 def test_collect_device_multiple_queries_populates_multiple_fields():
     mock = _get_mock_execute()
     mock.reset_mock()
     # Side effect: first call (interfaces), second call (ospf_neighbors)
+    # _collect_device checks queries in fixed order: interfaces → ospf_neighbors
     mock.side_effect = [
         {"raw": _IOS_INTF_RAW, "cli_style": "ios", "device": "D1C"},
         {"raw": _IOS_OSPF_NBR_RAW, "cli_style": "ios", "device": "D1C"},
@@ -179,4 +184,9 @@ def test_collect_device_multiple_queries_populates_multiple_fields():
     state = asyncio.run(_collect_device("D1C", {"interfaces", "ospf_neighbors"}))
     assert state.interfaces is not None
     assert state.ospf_neighbors is not None
+    # Verify both commands were dispatched, in the correct order
+    assert mock.call_count == 2
+    calls = [c.args for c in mock.call_args_list]
+    assert ("D1C", "show ip interface brief") in calls
+    assert ("D1C", "show ip ospf neighbor") in calls
     mock.side_effect = None  # reset for subsequent tests

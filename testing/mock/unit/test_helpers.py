@@ -34,7 +34,7 @@ def test_error_response_without_device():
 
 def test_error_response_empty_message():
     resp = _error_response("R1", "")
-    assert "error" in resp
+    assert resp["error"] == ""
     assert resp["device"] == "R1"
 
 

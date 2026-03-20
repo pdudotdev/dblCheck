@@ -409,3 +409,63 @@ def test_show_blocks_unicode_lookalike():
     # They do NOT bypass the device — the device will reject unknown commands.
     q = ShowCommand(device="D1C", command="show \u1d63unning-config")
     assert q.command == "show \u1d63unning-config"
+
+
+def test_show_blocks_running_config_with_leading_whitespace():
+    # .strip() is called before validation — leading spaces must not bypass the blocklist
+    with pytest.raises(ValidationError):
+        ShowCommand(device="D1C", command="  show running-config")
+
+
+def test_show_blocks_running_config_with_trailing_whitespace():
+    with pytest.raises(ValidationError):
+        ShowCommand(device="D1C", command="show running-config  ")
+
+
+def test_show_tab_as_separator_blocked():
+    # Tab character between show and run — split() treats tabs as whitespace,
+    # so "show\trun" → tokens ["show", "run"] → blocked by prefix match on "running-config"
+    with pytest.raises(ValidationError):
+        ShowCommand(device="D1C", command="show\trun")
+
+
+# ── RoutingPolicyQuery ────────────────────────────────────────────────────────
+
+def test_routing_policy_valid_redistribution():
+    q = RoutingPolicyQuery(device="D1C", query="redistribution")
+    assert q.query == "redistribution"
+
+
+def test_routing_policy_valid_route_maps():
+    q = RoutingPolicyQuery(device="D1C", query="route_maps")
+    assert q.query == "route_maps"
+
+
+def test_routing_policy_invalid_query_rejected():
+    with pytest.raises(ValidationError):
+        RoutingPolicyQuery(device="D1C", query="invalid_query")
+
+
+def test_routing_policy_vrf_injection_rejected():
+    with pytest.raises(ValidationError):
+        RoutingPolicyQuery(device="D1C", query="redistribution", vrf="evil;payload")
+
+
+# ── InterfacesQuery ───────────────────────────────────────────────────────────
+
+def test_interfaces_query_valid():
+    q = InterfacesQuery(device="D1C")
+    assert q.device == "D1C"
+
+
+def test_interfaces_query_requires_device():
+    with pytest.raises(ValidationError):
+        InterfacesQuery()
+
+
+# ── VRF injection — inherited BaseParamsModel validator ──────────────────────
+
+def test_bgp_vrf_injection_rejected():
+    # BaseParamsModel.vrf validator applies to all subclasses — verify via BgpQuery
+    with pytest.raises(ValidationError):
+        BgpQuery(device="D1C", query="summary", vrf="evil;payload")
