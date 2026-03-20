@@ -16,14 +16,15 @@ The `run_show` MCP tool accepts only commands that pass `ShowCommand` Pydantic v
 
 | Pattern | What it blocks |
 |---------|---------------|
-| `show running-config`, `show run` | Full config disclosure |
+| `show running-config`, `show run` | Full config disclosure (IOS/EOS/AOS) |
 | `show startup-config` | Startup config disclosure |
+| `show configuration`, `show conf` | Full config disclosure (JunOS/VyOS) |
 | `show crypto` | Key and certificate material |
 | `show tech-support` | Bulk system data dump |
 | `show aaa` | Auth/accounting config |
 | `show snmp` | SNMP community string disclosure |
 | `show secret` | Secret/credential disclosure |
-| Control characters (`\n`, `\r`, `\x00`) | Multi-command and null-byte injection |
+| Control characters (`\n`, `\r`, `\x00`) and `;` | Multi-command injection (`\n`/`\r`), null-byte injection, and CLI command chaining on JunOS (`;`) |
 | Non-`show` commands (IOS-style) | Prevents `debug`, `conf t`, `enable`, etc. |
 | RouterOS: `set`, `add`, `remove`, `enable`, `disable`, `reset`, `move`, `unset` | All mutating RouterOS verbs |
 | RouterOS: any verb other than `print` or `monitor` | Enforced safe-verb allowlist (token match) |
@@ -52,6 +53,20 @@ All MCP tool inputs are validated at the boundary before use:
 - **Prefix/CIDR** — appended to routing lookup commands after CIDR regex validation (`tools/routing.py`)
 
 No other user-controlled input reaches a command string.
+
+### SSH Transport (`transport/ssh.py`)
+
+All device connections use Scrapli over SSH. Two settings control authentication security:
+
+| Setting | Default | Production recommendation |
+|---------|---------|--------------------------|
+| `SSH_STRICT_HOST_KEY=true` | Off (no host key verification) | **Enable** — verifies device SSH fingerprint against `~/.ssh/known_hosts`. Prevents MITM interception of device credentials. Collect host keys with `legacy/collect_host_keys.sh` before enabling. |
+
+When `SSH_STRICT_HOST_KEY=true`:
+- All platforms: uses `BinOptions(enable_strict_key=True, known_hosts_path=~/.ssh/known_hosts)`
+- VyOS (libssh2 transport): uses `Ssh2Options(known_hosts_path=~/.ssh/known_hosts)`
+
+If a device's host key changes (replaced, re-imaged), the connection fails until the new key is collected. This is by design.
 
 ---
 

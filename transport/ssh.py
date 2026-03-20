@@ -4,11 +4,12 @@ import logging
 import os
 
 from scrapli import Cli, AuthOptions, SessionOptions
-from scrapli.transport import Ssh2Options as TransportSsh2Options
+from scrapli.transport import BinOptions, Ssh2Options as TransportSsh2Options
 from scrapli.exceptions import OpenException
 from core.settings import (
     USERNAME, PASSWORD,
     SSH_TIMEOUT_OPS, SSH_RETRIES, SSH_RETRY_DELAY,
+    SSH_STRICT_HOST_KEY,
 )
 from core.vault import get_secret
 
@@ -74,7 +75,13 @@ def _build_cli(device: dict, timeout_ops: int | None = None) -> Cli:
 
     # VyOS per-command SSH connections time out via bin.Transport (system SSH binary + PTY)
     # in daemon mode. Using libssh2 directly bypasses the PTY-based auth path that hangs.
-    transport = TransportSsh2Options() if platform == "vyos_vyos" else None
+    _known_hosts = os.path.expanduser("~/.ssh/known_hosts") if SSH_STRICT_HOST_KEY else None
+    if platform == "vyos_vyos":
+        transport = TransportSsh2Options(known_hosts_path=_known_hosts)
+    elif SSH_STRICT_HOST_KEY:
+        transport = BinOptions(enable_strict_key=True, known_hosts_path=_known_hosts)
+    else:
+        transport = None
 
     return Cli(
         host=device["host"],

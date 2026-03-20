@@ -349,12 +349,34 @@ def test_show_blocks_running_config_double_space():
         ShowCommand(device="D1C", command="show  running-config")
 
 
-def test_show_semicolon_not_blocked():
-    # Semicolon is NOT a control character — validator does not block it.
-    # This is an intentional design boundary: the blocked chars are \r, \n, \x00.
-    # Documenting this behavior: show version; configure terminal is currently accepted.
-    q = ShowCommand(device="D1C", command="show version; configure terminal")
-    assert q.command == "show version; configure terminal"
+def test_show_blocks_semicolon():
+    # Semicolons are command separators on JunOS — must be rejected.
+    with pytest.raises(ValidationError):
+        ShowCommand(device="D1C", command="show version; configure terminal")
+
+
+def test_show_allows_pipe():
+    # Pipes are IOS/EOS device-side output filters (| include, | section) — must remain allowed.
+    q = ShowCommand(device="D1C", command="show ip route | include 10.0.0")
+    assert q.command == "show ip route | include 10.0.0"
+
+
+def test_show_blocks_configuration():
+    # JunOS/VyOS: "show configuration" reveals full device config — must be blocked.
+    with pytest.raises(ValidationError):
+        ShowCommand(device="J1J", command="show configuration")
+
+
+def test_show_blocks_configuration_abbreviation():
+    # "show conf" is a 4-char prefix of "configuration" — must be blocked.
+    with pytest.raises(ValidationError):
+        ShowCommand(device="J1J", command="show conf")
+
+
+def test_show_blocks_configuration_commands():
+    # VyOS: "show configuration commands" reveals full config — must be blocked.
+    with pytest.raises(ValidationError):
+        ShowCommand(device="V1V", command="show configuration commands")
 
 
 def test_show_blocks_startup_config():

@@ -126,15 +126,16 @@ class ShowCommand(BaseParamsModel):
 
         Rules:
           - Must start with 'show ' (case-insensitive) or '/' (RouterOS)
-          - Must not contain control characters (\\r, \\n, \\x00)
+          - Must not contain control characters (\\r, \\n, \\x00) or semicolons
           - 'show' commands: second token must not be a sensitive command category
           - RouterOS '/' commands: must contain a safe verb and no dangerous verbs
         """
         stripped = v.strip()
 
-        # Reject control characters — prevent multi-command injection on device PTY
-        if any(c in stripped for c in '\r\n\x00'):
-            raise ValueError("run_show: command must not contain control characters")
+        # Reject control characters and semicolons — prevent multi-command injection.
+        # Semicolons are command separators on JunOS (e.g. "show version ; configure").
+        if any(c in stripped for c in '\r\n\x00;'):
+            raise ValueError("run_show: command must not contain control characters or semicolons")
 
         if stripped.lower().startswith("show "):
             # Blocklist sensitive show categories that expose credentials/keys/config.
@@ -142,7 +143,7 @@ class ShowCommand(BaseParamsModel):
             # if any blocked word starts with the user's token, treat it as blocked.
             # Minimum 3 chars for prefix matching to avoid false positives on short tokens.
             _BLOCKED = frozenset({"running-config", "startup-config", "tech-support",
-                                  "aaa", "crypto", "snmp", "secret"})
+                                  "aaa", "crypto", "snmp", "secret", "configuration"})
             tokens = stripped.lower().split()
             if len(tokens) >= 2:
                 cmd = tokens[1]

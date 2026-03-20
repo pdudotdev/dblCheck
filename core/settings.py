@@ -22,3 +22,7 @@ SSH_RETRY_DELAY = 2   # Seconds between retries
 # Max parallel device connections — prevents asyncio event loop starvation in daemon mode,
 # where the bridge polling loops share the event loop with SSH collection tasks.
 SSH_MAX_CONCURRENT = 5
+
+# If true, Scrapli will verify device SSH host keys against ~/.ssh/known_hosts.
+# Disabled by default (lab-safe). Set SSH_STRICT_HOST_KEY=true in .env for production.
+SSH_STRICT_HOST_KEY = os.getenv("SSH_STRICT_HOST_KEY", "").lower() in ("true", "1", "yes")
