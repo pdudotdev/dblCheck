@@ -125,6 +125,7 @@ def _cleanup_old_files() -> None:
 
 
 INCIDENT_FILE = DATA_DIR / "incident.json"
+_claude_proc = None   # subprocess.Popen | None — set by _diagnose(), read by SIGTERM handler
 
 
 def _failure_fingerprint(failures: list) -> str:
@@ -142,11 +143,12 @@ def _failure_fingerprint(failures: list) -> str:
 
 
 def _update_incident_ids(prev_incident: dict, fingerprint: str,
-                          current_ids: set) -> None:
+                          current_ids: set, current_count: int) -> None:
     """Update incident.json with a reduced failure set (no re-diagnosis needed)."""
     incident = {
         "fingerprint":    fingerprint,
         "failure_ids":    sorted([list(x) for x in current_ids]),
+        "failure_count":  current_count,
         "jira_issue_key": prev_incident.get("jira_issue_key"),
         "diagnosed_at":   prev_incident.get("diagnosed_at"),
     }
@@ -210,31 +212,33 @@ async def _handle_incident(failures: list, fingerprint: str,
 
     existing_key = prev.get("jira_issue_key")
 
-    if not existing_key:
-        issue_key = await jira_client.create_issue(summary=summary, description=diagnosis_text)
-        if not issue_key and jira_client._is_configured():
-            log.error("Jira ticket creation failed — will retry on next run")
-            return
-    else:
-        if previous_ids is not None:
-            current_set = set(
-                (r.assertion.device, r.assertion.type.value, str(r.assertion.expected))
-                for r in failures
+    # Always create a new ticket with the full diagnosis
+    issue_key = await jira_client.create_issue(summary=summary, description=diagnosis_text)
+
+    if not issue_key and jira_client._is_configured():
+        log.error("Jira ticket creation failed — will retry on next run")
+        return  # preserve existing incident.json — prevents orphaning old ticket
+
+    # Handle old ticket based on whether ANY old failure is still in the current set
+    if existing_key and issue_key:
+        current_ids = set(
+            (r.assertion.device, r.assertion.type.value, str(r.assertion.expected))
+            for r in failures
+        )
+        any_old_remain = previous_ids is not None and not previous_ids.isdisjoint(current_ids)
+
+        if any_old_remain:
+            # Old failures still active — don't resolve. Just add pointer to new ticket.
+            await jira_client.add_comment(
+                existing_key,
+                f"⚠️ New failures detected. All current failures now tracked in **{issue_key}**.",
             )
-            delta_parts = []
-            new_count = len(current_set - previous_ids)
-            resolved_count = len(previous_ids - current_set)
-            if new_count:
-                delta_parts.append(f"{new_count} new")
-            if resolved_count:
-                delta_parts.append(f"{resolved_count} resolved")
-            delta = ", ".join(delta_parts) + ". " if delta_parts else ""
-            header = f"Failure set changed — {delta}{len(failures)} active now."
         else:
-            header = f"Failure set changed ({len(failures)} failure{'s' if len(failures) != 1 else ''})."
-        comment = f"{header}\n\nUpdated diagnosis:\n\n{diagnosis_text}"
-        await jira_client.add_comment(existing_key, comment)
-        issue_key = existing_key
+            # All old failures gone — resolve cleanly (no pointer needed).
+            await jira_client.resolve_issue(
+                existing_key,
+                "✅ All tracked failures resolved.",
+            )
 
     incident = {
         "fingerprint":    fingerprint,
@@ -242,6 +246,7 @@ async def _handle_incident(failures: list, fingerprint: str,
             [r.assertion.device, r.assertion.type.value, str(r.assertion.expected)]
             for r in failures
         ),
+        "failure_count":  len(failures),
         "jira_issue_key": issue_key,
         "diagnosed_at":   datetime.now(timezone.utc).isoformat(),
     }
@@ -452,14 +457,18 @@ async def _run(args) -> int:
 
                 # Partial resolution: post Jira comment + sync incident.json
                 if not identical and prev_incident.get("jira_issue_key"):
+                    prev_count = prev_incident.get("failure_count", len(previous_ids))
+                    n_resolved = prev_count - len(failures)
                     comment = (
-                        f"{len(resolved)} of {len(previous_ids)} failure(s) now resolved. "
-                        f"{len(current_ids)} still active.\n\nResolved:\n"
+                        f"**✅ {n_resolved} of {prev_count} failure(s) resolved.** "
+                        f"{len(failures)} still active.\n\n"
+                        f"**Resolved:**\n"
                     )
                     for dev, ftype, exp in sorted(resolved):
-                        comment += f"- [{dev}] {ftype} — expected: {exp}\n"
+                        comment += f"- `[{dev}]` {ftype} — expected: `{exp}`\n"
                     await _jc.add_comment(prev_incident["jira_issue_key"], comment)
-                    _update_incident_ids(prev_incident, fingerprint, current_ids)
+                    _update_incident_ids(prev_incident, fingerprint, current_ids,
+                                         current_count=len(failures))
             else:
                 session_name = f"session-{ts}"
                 session_file = SESSIONS_DIR / f"{session_name}.ndjson"
@@ -472,8 +481,20 @@ async def _run(args) -> int:
                     "started_at": datetime.now(timezone.utc).isoformat(),
                     "summary": run_dict["summary"],
                 })
-                await asyncio.to_thread(_diagnose, failures, session_file,
-                                         headless=args.headless)
+                def _sigterm_handler(signum, frame):
+                    if _claude_proc is not None and _claude_proc.poll() is None:
+                        try:
+                            os.killpg(_claude_proc.pid, signal.SIGTERM)
+                        except OSError:
+                            pass
+                    raise SystemExit(1)
+
+                prev_sigterm = signal.signal(signal.SIGTERM, _sigterm_handler)
+                try:
+                    await asyncio.to_thread(_diagnose, failures, session_file,
+                                             headless=args.headless)
+                finally:
+                    signal.signal(signal.SIGTERM, prev_sigterm)
                 diagnosis_text = _extract_diagnosis_text(session_file)
                 if diagnosis_text:
                     await _handle_incident(failures, fingerprint, diagnosis_text,
@@ -504,12 +525,19 @@ async def _run(args) -> int:
             idle_state["diagnosis_error"] = diagnosis_error
         if diagnosis_skipped:
             idle_state["diagnosis_skipped"] = True
-            jira_key = prev_incident.get("jira_issue_key")
-            if jira_key:
-                idle_state["jira_issue_key"] = jira_key
-            jira_base_url = os.getenv("JIRA_BASE_URL", "").rstrip("/")
-            if jira_base_url:
-                idle_state["jira_base_url"] = jira_base_url
+        # Always include current Jira key so the dashboard can show it in the
+        # completion notice (covers both full-diagnosis and skipped cases).
+        if not idle_state.get("jira_issue_key"):
+            try:
+                if INCIDENT_FILE.exists():
+                    _inc = json.loads(INCIDENT_FILE.read_text())
+                    if _inc.get("jira_issue_key"):
+                        idle_state["jira_issue_key"] = _inc["jira_issue_key"]
+                        jira_base_url = os.getenv("JIRA_BASE_URL", "").rstrip("/")
+                        if jira_base_url:
+                            idle_state["jira_base_url"] = jira_base_url
+            except Exception:
+                pass
         _write_state(idle_state)
 
         return 0 if not failures else 2
@@ -572,6 +600,7 @@ def _diagnose(failures: list, session_path: Path, headless: bool = False) -> Non
     Dual-output: raw stream-json lines written to session_path (for dashboard),
     and parsed text/tool events printed to CLI (unless headless).
     """
+    global _claude_proc
     failure_lines = "\n".join(
         f"- [{r.assertion.device}] {r.assertion.description}\n"
         f"  Expected: {_safe(r.assertion.expected)}  Actual: {_safe(r.actual)}"
@@ -631,17 +660,7 @@ def _diagnose(failures: list, session_path: Path, headless: bool = False) -> Non
             # causing the stdout read loop to hang indefinitely.
             preexec_fn=os.setsid,
         )
-
-        # Forward SIGTERM to the claude process group so that a Stop request from
-        # the dashboard (which SIGTERMs this process) also kills claude + MCP children.
-        def _sigterm_handler(signum, frame):
-            try:
-                os.killpg(proc.pid, signal.SIGTERM)
-            except OSError:
-                pass
-            raise SystemExit(1)
-
-        prev_sigterm = signal.signal(signal.SIGTERM, _sigterm_handler)
+        _claude_proc = proc
 
         timed_out = threading.Event()
 
@@ -740,7 +759,7 @@ def _diagnose(failures: list, session_path: Path, headless: bool = False) -> Non
                     _print_line(_text_buf)
 
         finally:
-            signal.signal(signal.SIGTERM, prev_sigterm)
+            _claude_proc = None
             timer.cancel()
             try:
                 proc.wait(timeout=5)

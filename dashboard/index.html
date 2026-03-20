@@ -737,8 +737,15 @@ function onSessionIdle(msg) {
   }
 
   if (diagnosisCompleted) {
-    // Agent just finished — keep panes visible with content, compact table stays
     setStatus("Idle", "idle");
+    const notice = document.getElementById("reasoning-completion");
+    if (notice && msg && msg.jira_issue_key) {
+      const key = msg.jira_issue_key;
+      const url = msg.jira_base_url ? `${msg.jira_base_url}/browse/${key}` : null;
+      notice.innerHTML = url
+        ? `Analysis complete. See <a href="${url}" target="_blank" style="color:var(--blue)">${escHtml(key)}</a>.`
+        : `Analysis complete. See ${escHtml(key)}.`;
+    }
     return;
   }
 
@@ -781,6 +788,13 @@ function onSessionEnd(msg) {
   const cursor = document.getElementById("cursor");
   if (cursor) cursor.remove();
   flushReasoning();
+  const body = document.getElementById("reasoning-body");
+  const notice = document.createElement("div");
+  notice.id = "reasoning-completion";
+  notice.style.cssText = "margin-top:16px;padding-top:10px;border-top:1px solid var(--border);color:var(--muted);font-size:14px;";
+  notice.textContent = "Analysis complete.";
+  body.appendChild(notice);
+  if (!reasoningLocked) body.scrollTop = body.scrollHeight;
 }
 
 // ─── Layout helpers ───────────────────────────────────────────────────────────
@@ -922,10 +936,9 @@ function hideStopBtn() { document.getElementById("stop-btn").classList.remove("v
 
 // ─── Reasoning panel ──────────────────────────────────────────────────────────
 function setReasoningStatus(status) {
-  // Once text has arrived the indicator is permanently hidden — skip the DOM work.
-  if (reasoningBuffer.length > 0) return;
   const el = document.getElementById("reasoning-thinking");
   if (!el) return;
+  if (reasoningBuffer.length > 0) { el.style.display = "none"; return; }
   el.style.display = status === "thinking" ? "" : "none";
 }
 
@@ -956,9 +969,11 @@ function flushReasoning() {
   // reasoningRenderedLen tracks that we don't re-render when nothing changed.
   body.innerHTML = DOMPurify.sanitize(marked.parse(displayBuffer));
   body.querySelectorAll("pre code").forEach(el => hljs.highlightElement(el));
-  const cur = document.createElement("span");
-  cur.id = "cursor";
-  body.appendChild(cur);
+  if (!diagnosisCompleted) {
+    const cur = document.createElement("span");
+    cur.id = "cursor";
+    body.appendChild(cur);
+  }
   if (!reasoningLocked) body.scrollTop = body.scrollHeight;
 }
 
@@ -1064,6 +1079,7 @@ function showFullResult(btn, fullText) {
 function clearDiagnosisPanels() {
   document.getElementById("reasoning-body").innerHTML = "";
   document.getElementById("tools-body").innerHTML = "";
+  document.getElementById("reasoning-thinking").style.display = "none";
   reasoningBuffer = "";
   reasoningRenderedLen = 0;
   renderPending = false;
@@ -1143,6 +1159,10 @@ function copyPanel(panelId, btn) {
   navigator.clipboard.writeText(el.innerText || el.textContent).then(() => {
     const orig = btn.textContent;
     btn.textContent = "COPIED";
+    setTimeout(() => { btn.textContent = orig; }, 1500);
+  }).catch(() => {
+    const orig = btn.textContent;
+    btn.textContent = "FAILED";
     setTimeout(() => { btn.textContent = orig; }, 1500);
   });
 }
