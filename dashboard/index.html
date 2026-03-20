@@ -273,8 +273,9 @@
   #diagnosis-placeholder {
     color: var(--muted);
     font-size: 16px;
-    font-weight: 500;
+    font-weight: 600;
     text-align: center;
+    text-shadow: 0 0 8px rgba(139, 148, 158, 0.3);
   }
   #diagnosis-placeholder a { color: var(--blue); text-decoration: none; }
   #diagnosis-placeholder a:hover { text-decoration: underline; }
@@ -623,7 +624,12 @@ function handleInit(msg) {
   }
   if (s === "idle") {
     const hasReasoning = msg.buffer && msg.buffer.some(ev => ev.ui_type === "reasoning");
-    if (hasReasoning) {
+    if (msg.error) {
+      setDiagnosisPlaceholder("⚠️ " + escHtml(msg.error));
+      setStatus("Error", "idle");
+    } else if (msg.diagnosis_error && !hasReasoning) {
+      setDiagnosisPlaceholder("⚠️ " + escHtml(msg.diagnosis_error));
+    } else if (hasReasoning) {
       // Completed diagnosis — show panes in active mode
       showValidationCompact();
       activateDiagnosis();
@@ -722,11 +728,32 @@ function onSessionIdle(msg) {
     showMeta("hdr-interval-group", "hdr-interval", fmtInterval(msg.interval));
   }
 
+  // Validation error (e.g. Vault sealed, no inventory)
+  if (msg && msg.error) {
+    setDiagnosisPlaceholder("⚠️ " + escHtml(msg.error));
+    setStatus("Error", "idle");
+    if (currentRunData) showValidationTable();
+    return;
+  }
+
   if (diagnosisCompleted) {
     // Agent just finished — keep panes visible with content, compact table stays
     setStatus("Idle", "idle");
     return;
   }
+
+  // Diagnosis was attempted but produced no output (e.g. API credits exhausted)
+  const diagActive = document.getElementById("diagnosis-section").classList.contains("active");
+  if (diagActive && reasoningBuffer.length === 0) {
+    const errMsg = (msg && msg.diagnosis_error)
+      ? msg.diagnosis_error
+      : "Diagnosis failed — no output received";
+    setDiagnosisPlaceholder("⚠️ " + escHtml(errMsg));
+    setStatus("Idle", "idle");
+    if (currentRunData) showValidationTable();
+    return;
+  }
+
   if (msg && msg.diagnosis_skipped) {
     setDiagnosisPlaceholder(buildSkipHtml(msg.jira_issue_key, msg.jira_base_url));
   } else if (currentRunData && (currentRunData.summary || {}).failed === 0 && (currentRunData.summary || {}).errors === 0) {
@@ -789,10 +816,7 @@ function showValidationCompact() {
   vs.classList.add("compact");
   const tw = document.getElementById("validation-table-wrapper");
   tw.style.display = "block";
-  const failRows = tw.querySelectorAll("tr.fail, tr.error").length;
-  const ideal = 32 + failRows * 34 + 2;
-  const maxCap = Math.floor(window.innerHeight * 0.4);
-  tw.style.maxHeight = Math.min(ideal, maxCap) + "px";
+  tw.style.maxHeight = "";
   document.getElementById("summary-bar").classList.add("visible");
 }
 
@@ -805,6 +829,12 @@ function setDiagnosisPlaceholder(html) {
 function activateDiagnosis() {
   document.getElementById("diagnosis-section").classList.add("active");
   document.getElementById("resize-handle").classList.add("visible");
+  // Pin the split at 50% unless the user has already dragged it to a custom position.
+  const vs = document.getElementById("validation-section");
+  if (!vs.style.height) {
+    vs.style.height = "50%";
+    vs.style.flex = "none";
+  }
 }
 
 // ─── Assertion table ──────────────────────────────────────────────────────────
@@ -914,9 +944,17 @@ function flushReasoning() {
   const body = document.getElementById("reasoning-body");
   const cursor = document.getElementById("cursor");
   if (cursor) cursor.remove();
+  // Strip agent narration before the first ## heading (mirrors _extract_diagnosis_text logic).
+  // If no heading has arrived yet the full buffer is shown; once a heading appears
+  // everything before it is hidden on every render.
+  let displayBuffer = reasoningBuffer;
+  if (!displayBuffer.startsWith("## ")) {
+    const idx = displayBuffer.indexOf("\n## ");
+    if (idx !== -1) displayBuffer = displayBuffer.substring(idx + 1);
+  }
   // Re-parse only the current buffer. marked.parse is fast for typical session sizes;
   // reasoningRenderedLen tracks that we don't re-render when nothing changed.
-  body.innerHTML = DOMPurify.sanitize(marked.parse(reasoningBuffer));
+  body.innerHTML = DOMPurify.sanitize(marked.parse(displayBuffer));
   body.querySelectorAll("pre code").forEach(el => hljs.highlightElement(el));
   const cur = document.createElement("span");
   cur.id = "cursor";

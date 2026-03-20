@@ -371,6 +371,10 @@ async def watch_state_file() -> None:
                     pass
 
             idle_event: dict = {"ui_type": "session_idle"}
+            if state.get("error"):
+                idle_event["error"] = state["error"]
+            if state.get("diagnosis_error"):
+                idle_event["diagnosis_error"] = state["diagnosis_error"]
             if state.get("diagnosis_skipped"):
                 idle_event["diagnosis_skipped"] = True
                 if state.get("jira_issue_key"):
@@ -522,6 +526,10 @@ async def ws_handler(websocket) -> None:
             "last_run": last_run,
             "run_history": run_history,
         }
+        # Forward error fields so late-joining clients see the error state.
+        for _err_key in ("error", "diagnosis_error"):
+            if SESSION_STATE.get(_err_key):
+                init_msg[_err_key] = SESSION_STATE[_err_key]
         await websocket.send(json.dumps(init_msg))
 
         # Join broadcast group only after init is sent — new events from here on.

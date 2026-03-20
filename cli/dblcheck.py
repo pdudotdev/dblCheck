@@ -237,6 +237,19 @@ async def _run(args) -> int:
     from core.inventory import devices, inventory_source
     from core.vault import credential_source
 
+    def _fail(msg: str) -> None:
+        """Write an error to the state file for early failures (before lock/validation)."""
+        try:
+            ex = json.loads(STATE_FILE.read_text()) if STATE_FILE.exists() else {}
+        except Exception:
+            ex = {}
+        _write_state({
+            "state": "idle",
+            "error": msg,
+            **{k: v for k, v in ex.items()
+               if k in ("last_run", "last_run_file", "session_file")},
+        })
+
     if not USERNAME or not PASSWORD:
         if not args.headless:
             print(
@@ -245,6 +258,7 @@ async def _run(args) -> int:
                 "and ROUTER_PASSWORD in .env.",
                 file=sys.stderr,
             )
+        _fail("Router credentials not configured")
         return 1
 
     if not devices:
@@ -254,6 +268,7 @@ async def _run(args) -> int:
                 "Set NETBOX_URL in .env and store the NetBox token in Vault (dblcheck/netbox).",
                 file=sys.stderr,
             )
+        _fail("No device inventory — check Vault and NetBox")
         return 1
 
     # ── Startup banner ────────────────────────────────────────────────────────
@@ -363,6 +378,7 @@ async def _run(args) -> int:
 
         last_session_file = None
         diagnosis_skipped = False
+        diagnosis_error = None
         if failures and not args.no_diagnose:
             fingerprint = _failure_fingerprint(failures)
             from core import jira_client as _jc
@@ -394,6 +410,7 @@ async def _run(args) -> int:
                     await _handle_incident(failures, fingerprint, diagnosis_text)
                 else:
                     log.warning("Diagnosis produced no text — skipping incident handling")
+                    diagnosis_error = "Diagnosis produced no output — check API credits or Claude CLI"
 
         elif not failures and prev_incident.get("jira_issue_key"):
             # All assertions pass — resolve the ticket and clear incident state
@@ -413,6 +430,8 @@ async def _run(args) -> int:
         }
         if last_session_file:
             idle_state["session_file"] = str(last_session_file)
+        if diagnosis_error:
+            idle_state["diagnosis_error"] = diagnosis_error
         if diagnosis_skipped:
             idle_state["diagnosis_skipped"] = True
             jira_key = prev_incident.get("jira_issue_key")
@@ -543,6 +562,17 @@ def _diagnose(failures: list, session_path: Path, headless: bool = False) -> Non
             preexec_fn=os.setsid,
         )
 
+        # Forward SIGTERM to the claude process group so that a Stop request from
+        # the dashboard (which SIGTERMs this process) also kills claude + MCP children.
+        def _sigterm_handler(signum, frame):
+            try:
+                os.killpg(proc.pid, signal.SIGTERM)
+            except OSError:
+                pass
+            raise SystemExit(1)
+
+        prev_sigterm = signal.signal(signal.SIGTERM, _sigterm_handler)
+
         timed_out = threading.Event()
 
         def _kill_after_timeout() -> None:
@@ -640,6 +670,7 @@ def _diagnose(failures: list, session_path: Path, headless: bool = False) -> Non
                     _print_line(_text_buf)
 
         finally:
+            signal.signal(signal.SIGTERM, prev_sigterm)
             timer.cancel()
             try:
                 proc.wait(timeout=5)
