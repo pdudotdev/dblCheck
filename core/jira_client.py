@@ -18,6 +18,7 @@ from core.vault import get_secret
 log = logging.getLogger("dblcheck.jira")
 
 _JIRA_TIMEOUT = httpx.Timeout(timeout=15.0, connect=5.0)
+_config_warned = False
 
 
 def _config() -> dict:
@@ -32,10 +33,13 @@ def _config() -> dict:
 
 
 def _is_configured() -> bool:
+    global _config_warned
     cfg = _config()
     missing = [k for k in ("base_url", "email", "api_token", "project_key") if not cfg[k]]
     if missing:
-        log.warning("Jira not configured — missing: %s", ", ".join(missing))
+        if not _config_warned:
+            log.info("Jira integration disabled — missing: %s", ", ".join(missing))
+            _config_warned = True
         return False
     return True
 

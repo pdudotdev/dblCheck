@@ -503,14 +503,15 @@ async def _run(args) -> int:
                     log.warning("Diagnosis produced no text — skipping incident handling")
                     diagnosis_error = "Diagnosis produced no output — check API credits or Claude CLI"
 
-        elif not failures and prev_incident.get("jira_issue_key"):
-            # All assertions pass — resolve the ticket and clear incident state
-            from core import jira_client
-            ts_now = datetime.now(timezone.utc).strftime("%b %d, %Y %H:%M UTC")
-            await jira_client.resolve_issue(
-                prev_incident["jira_issue_key"],
-                f"✅ All dblCheck assertions now pass. Failures resolved at {ts_now}.",
-            )
+        elif not failures and prev_incident:
+            # All assertions pass — resolve the ticket (if any) and clear incident state
+            if prev_incident.get("jira_issue_key"):
+                from core import jira_client
+                ts_now = datetime.now(timezone.utc).strftime("%b %d, %Y %H:%M UTC")
+                await jira_client.resolve_issue(
+                    prev_incident["jira_issue_key"],
+                    f"✅ All dblCheck assertions now pass. Failures resolved at {ts_now}.",
+                )
             INCIDENT_FILE.unlink(missing_ok=True)
 
         idle_state = {
@@ -637,7 +638,7 @@ def _diagnose(failures: list, session_path: Path, headless: bool = False) -> Non
     try:
         from core.vault import get_secret
         env = os.environ.copy()
-        api_key = get_secret("dblcheck/anthropic", "api_key", quiet=True)
+        api_key = get_secret("dblcheck/anthropic", "api_key", fallback_env="ANTHROPIC_API_KEY", quiet=True)
         if api_key:
             env["ANTHROPIC_API_KEY"] = api_key
 
