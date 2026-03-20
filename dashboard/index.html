@@ -493,7 +493,9 @@
   <div id="validation-section" class="full hidden">
     <div class="section-header">
       VALIDATION RESULTS
+      <span id="val-ts-label"  style="color:var(--orange);font-size:13px;font-weight:600;display:none">Last Run:</span>
       <span id="val-timestamp" style="color:var(--muted);font-size:13px;font-weight:400"></span>
+      <span id="val-dur-label" style="color:var(--orange);font-size:13px;font-weight:600;display:none">Duration:</span>
       <span id="val-duration"  style="color:var(--muted);font-size:13px;font-weight:400"></span>
     </div>
     <!-- Full table (idle phase) -->
@@ -879,10 +881,12 @@ function renderAssertionTable(data) {
 
   // Update section header timestamp/duration
   if (data.timestamp) {
+    document.getElementById("val-ts-label").style.display = "";
     document.getElementById("val-timestamp").textContent = fmtTime(data.timestamp);
   }
   if (data.duration_sec != null) {
-    document.getElementById("val-duration").textContent = `  ${data.duration_sec}s`;
+    document.getElementById("val-dur-label").style.display = "";
+    document.getElementById("val-duration").textContent = data.duration_sec + "s";
   }
 }
 
