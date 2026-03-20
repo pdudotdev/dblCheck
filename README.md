@@ -50,12 +50,15 @@ Continuously checks **live network state against design intent** and invokes a C
 - [x] Sonnet 4.6
 - [x] Opus 4.6 (default, best reasoning)
 
-▫️ **Operational Guardrails:**
-- [x] See [**guardrails.md**](metadata/about/guardrails.md)
-
 ▫️ **Operational Costs:**
 - [x] Periodic network state validation: programmatic, no cost
 - [x] Agent diagnosis: **~$0.19 per run** (only on detected drift)
+
+▫️ **Operational Flow:**
+- [x] See [**operations.md**](metadata/about/operations.md)
+
+▫️ **Operational Guardrails:**
+- [x] See [**guardrails.md**](metadata/about/guardrails.md)
 
 ## 🍀 Here's a Quick Demo
 - [x] *Demo video coming soon...*

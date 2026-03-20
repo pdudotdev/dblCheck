@@ -21,12 +21,14 @@ The `run_show` MCP tool accepts only commands that pass `ShowCommand` Pydantic v
 | `show crypto` | Key and certificate material |
 | `show tech-support` | Bulk system data dump |
 | `show aaa` | Auth/accounting config |
-| Control characters (`\n`, `\r`) | Multi-command injection |
+| `show snmp` | SNMP community string disclosure |
+| `show secret` | Secret/credential disclosure |
+| Control characters (`\n`, `\r`, `\x00`) | Multi-command and null-byte injection |
 | Non-`show` commands (IOS-style) | Prevents `debug`, `conf t`, `enable`, etc. |
-| RouterOS: `set`, `add`, `remove`, `enable`, `disable` verbs | Mutating RouterOS commands |
-| RouterOS: any verb other than `print` or `monitor-traffic` | Enforced safe-verb allowlist |
+| RouterOS: `set`, `add`, `remove`, `enable`, `disable`, `reset`, `move`, `unset` | All mutating RouterOS verbs |
+| RouterOS: any verb other than `print` or `monitor` | Enforced safe-verb allowlist (token match) |
 
-Known residual risk: IOS command abbreviations (e.g., `sh run` for `show running-config`) bypass substring matching. Common abbreviations like `show run` are explicitly blocked, but a full IOS parser would be required to close this gap completely.
+Known residual risk: IOS command abbreviations (e.g., `sh run` for `show running-config`) bypass substring matching. Common abbreviations like `show run` are explicitly blocked via prefix matching (minimum 3 chars), but a full IOS parser would be required to close this gap completely.
 
 ### Input Parameter Validation (`input_models/models.py`)
 
@@ -35,14 +37,21 @@ All MCP tool inputs are validated at the boundary before use:
 | Parameter | Validation | Rejects |
 |-----------|-----------|---------|
 | `vrf` | Alphanumeric + `_`/`-`, max 32 chars | `;`, `\|`, spaces, injection payloads |
-| `neighbor` | Valid IPv4 address | Hostnames, `1.2.3.4 \| include password`-style strings |
+| `neighbor` | Valid IP address (IPv4 or IPv6) | Hostnames, `1.2.3.4 \| include password`-style strings |
 | `prefix` | IPv4 address or CIDR regex | Non-IP strings, command injection via prefix field |
 | `device` | Any string (looked up in inventory) | Unknown devices return an error, not a command |
+| `query` | Pydantic `Literal` type (enum allowlist) | Any value outside the defined set of query types |
 | `command` (ShowCommand) | Full validation as above | Sensitive and mutating commands |
 
 ### Static Command Map (`platforms/platform_map.py`)
 
-`get_action()` resolves device commands from a hardcoded `PLATFORM_MAP` dictionary. User-controlled input (device name, query type, VRF name) is never interpolated into arbitrary command strings — the VRF value is only substituted into a pre-approved template via `{vrf}` placeholder with no shell expansion.
+`get_action()` resolves device commands from a hardcoded `PLATFORM_MAP` dictionary. Three types of user-controlled input are substituted into command strings, all validated before use:
+
+- **VRF name** — substituted via `{vrf}` placeholder with no shell expansion (`_apply_vrf()`)
+- **Neighbor IP** — appended to neighbor-query commands after IPv4/IPv6 address validation (`tools/protocol.py`)
+- **Prefix/CIDR** — appended to routing lookup commands after CIDR regex validation (`tools/routing.py`)
+
+No other user-controlled input reaches a command string.
 
 ---
 
@@ -50,12 +59,13 @@ All MCP tool inputs are validated at the boundary before use:
 
 Enforced by `.claude/settings.local.json` deny rules — cannot be changed at runtime without editing the file.
 
-### Deny Rules (14 rules)
+### Deny Rules (22 rules)
 
 | Rule | What it blocks |
 |------|---------------|
-| `Read(.env)` and 5 variants | Direct reads of credential files |
-| `Bash(cat/less/head/tail/more .env*)` | Shell-based .env reads |
+| `Read(.env)` and 7 variants (`.env.local`, `.env.production`, `.env.staging`, `.env.test`, `**/.env`, `**/.env.local`, `**/.env.production`) | Direct reads of credential files |
+| `Bash(cat .env)`, `Bash(cat .env.local)`, `Bash(cat .env.production)` | Shell-based .env reads via cat |
+| `Bash(less .env*)`, `Bash(head .env*)`, `Bash(tail .env*)`, `Bash(more .env*)` | Shell-based .env reads via pagers |
 | `Bash(env)`, `Bash(printenv *)` | Environment variable enumeration |
 | `Bash(ssh *)`, `Bash(sshpass *)` | Direct SSH outside the agent's transport layer |
 | `Bash(rm -rf *)` | Catastrophic file deletion |
