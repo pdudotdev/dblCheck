@@ -160,3 +160,159 @@ def test_create_issue_returns_none_when_not_configured(monkeypatch):
     sys.modules["core.vault"].get_secret = lambda *a, **kw: None
     result = asyncio.run(_jira.create_issue("Test summary", "Test description"))
     assert result is None
+
+
+# ── HTTP operation tests: create_issue, add_comment, resolve_issue ────────────
+# Uses unittest.mock to patch httpx.AsyncClient so no real HTTP is made.
+
+import asyncio
+from unittest.mock import AsyncMock, MagicMock, patch as _patch
+
+
+@pytest.fixture
+def configured_jira(monkeypatch):
+    """Set all required Jira env vars and reset module state for HTTP tests."""
+    monkeypatch.setenv("JIRA_BASE_URL", "https://jira.example.com")
+    monkeypatch.setenv("JIRA_EMAIL", "user@example.com")
+    monkeypatch.setenv("JIRA_PROJECT_KEY", "NET")
+    sys.modules["core.vault"].get_secret = lambda *a, **kw: "fake_token"
+    _jira._config_warned = False  # reset warning sentinel between tests
+
+
+def _make_response(status_code, json_data=None, text=""):
+    """Create a mock httpx Response-like object."""
+    resp = MagicMock()
+    resp.status_code = status_code
+    resp.json = MagicMock(return_value=json_data or {})
+    resp.text = text
+    return resp
+
+
+def _async_client(post=None, get=None, post_side_effect=None, get_side_effect=None):
+    """Create a mock httpx.AsyncClient async context manager."""
+    client = AsyncMock()
+    client.__aenter__ = AsyncMock(return_value=client)
+    client.__aexit__ = AsyncMock(return_value=None)
+    if post_side_effect is not None:
+        client.post = AsyncMock(side_effect=post_side_effect)
+    elif post is not None:
+        client.post = AsyncMock(return_value=post)
+    if get_side_effect is not None:
+        client.get = AsyncMock(side_effect=get_side_effect)
+    elif get is not None:
+        client.get = AsyncMock(return_value=get)
+    return client
+
+
+# ── create_issue ──────────────────────────────────────────────────────────────
+
+def test_create_issue_success_returns_key(configured_jira):
+    client = _async_client(post=_make_response(201, {"key": "NET-42"}))
+    with _patch.object(_jira.httpx, "AsyncClient", return_value=client):
+        result = asyncio.run(_jira.create_issue("Test summary", "Test description"))
+    assert result == "NET-42"
+
+
+def test_create_issue_fallback_to_task_on_400(configured_jira):
+    # First POST (configured issue type) → 400; second POST (Task fallback) → 201.
+    client = _async_client()
+    client.post = AsyncMock(side_effect=[
+        _make_response(400),
+        _make_response(201, {"key": "NET-43"}),
+    ])
+    with _patch.object(_jira.httpx, "AsyncClient", return_value=client):
+        result = asyncio.run(_jira.create_issue("Test", "Desc"))
+    assert result == "NET-43"
+
+
+def test_create_issue_server_error_returns_none(configured_jira):
+    client = _async_client(post=_make_response(500, text="Internal Server Error"))
+    with _patch.object(_jira.httpx, "AsyncClient", return_value=client):
+        result = asyncio.run(_jira.create_issue("Test", "Desc"))
+    assert result is None
+
+
+def test_create_issue_connection_error_returns_none(configured_jira):
+    client = _async_client(post_side_effect=httpx.ConnectError("connection refused"))
+    with _patch.object(_jira.httpx, "AsyncClient", return_value=client):
+        result = asyncio.run(_jira.create_issue("Test", "Desc"))
+    assert result is None
+
+
+# ── add_comment ───────────────────────────────────────────────────────────────
+
+def test_add_comment_success(configured_jira):
+    client = _async_client(post=_make_response(201))
+    with _patch.object(_jira.httpx, "AsyncClient", return_value=client):
+        asyncio.run(_jira.add_comment("NET-42", "comment text"))  # must not raise
+
+
+def test_add_comment_server_error_no_crash(configured_jira):
+    # A 500 from the Jira server is logged and swallowed — never raised to caller.
+    client = _async_client(post=_make_response(500, text="server error"))
+    with _patch.object(_jira.httpx, "AsyncClient", return_value=client):
+        asyncio.run(_jira.add_comment("NET-42", "comment text"))  # must not raise
+
+
+# ── resolve_issue ─────────────────────────────────────────────────────────────
+
+def test_resolve_issue_success(configured_jira):
+    transitions = {"transitions": [{"id": "31", "name": "Done"}]}
+    client = _async_client(
+        get=_make_response(200, transitions),
+        post=_make_response(204),
+    )
+    with _patch.object(_jira.httpx, "AsyncClient", return_value=client):
+        asyncio.run(_jira.resolve_issue("NET-42", "resolved"))  # must not raise
+    client.get.assert_called_once()
+    client.post.assert_called_once()
+
+
+def test_resolve_issue_no_matching_transition_falls_back_to_comment(configured_jira):
+    # No "done/resolve/close" keyword — fallback to add_comment.
+    transitions = {"transitions": [{"id": "1", "name": "Reopen"}, {"id": "2", "name": "In Progress"}]}
+    client = _async_client(
+        get=_make_response(200, transitions),
+        post=_make_response(201),
+    )
+    with _patch.object(_jira.httpx, "AsyncClient", return_value=client):
+        asyncio.run(_jira.resolve_issue("NET-42", "resolved"))
+    # POST called once: the fallback comment (no transition was attempted)
+    client.post.assert_called_once()
+    comment_url = client.post.call_args[0][0]
+    assert "comment" in comment_url
+
+
+def test_resolve_issue_transition_failure_falls_back_to_comment(configured_jira):
+    # Transition found but POST returns 500 → fallback to add_comment.
+    transitions = {"transitions": [{"id": "31", "name": "Done"}]}
+    client = _async_client(get=_make_response(200, transitions))
+    client.post = AsyncMock(side_effect=[
+        _make_response(500),   # transition POST fails
+        _make_response(201),   # fallback comment POST succeeds
+    ])
+    with _patch.object(_jira.httpx, "AsyncClient", return_value=client):
+        asyncio.run(_jira.resolve_issue("NET-42", "resolved"))
+    assert client.post.call_count == 2
+
+
+def test_resolve_issue_transitions_fetch_fails_falls_back_to_comment(configured_jira):
+    # GET transitions returns non-200 → log warning + fallback to add_comment.
+    client = _async_client(
+        get=_make_response(500),
+        post=_make_response(201),
+    )
+    with _patch.object(_jira.httpx, "AsyncClient", return_value=client):
+        asyncio.run(_jira.resolve_issue("NET-42", "resolved"))
+    client.post.assert_called_once()
+
+
+def test_resolve_issue_connection_error_falls_back_to_comment(configured_jira):
+    # ConnectError during GET → caught by except clause → add_comment called.
+    client = _async_client(
+        get_side_effect=httpx.ConnectError("connection refused"),
+        post=_make_response(201),
+    )
+    with _patch.object(_jira.httpx, "AsyncClient", return_value=client):
+        asyncio.run(_jira.resolve_issue("NET-42", "resolved"))
+    client.post.assert_called_once()

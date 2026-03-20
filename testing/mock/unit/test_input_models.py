@@ -469,3 +469,24 @@ def test_bgp_vrf_injection_rejected():
     # BaseParamsModel.vrf validator applies to all subclasses — verify via BgpQuery
     with pytest.raises(ValidationError):
         BgpQuery(device="D1C", query="summary", vrf="evil;payload")
+
+
+# ── Design boundary documentation ─────────────────────────────────────────────
+
+def test_routing_prefix_regex_allows_semantically_invalid_ip():
+    # _prefix_RE prevents injection (semicolons, letters, spaces) but does NOT
+    # validate that octets are in range or that the prefix length is valid.
+    # The device itself rejects out-of-range values. This test documents the
+    # boundary so that any future tightening of the regex shows up explicitly.
+    q = RoutingQuery(device="D1C", prefix="999.0.0.0/33")
+    assert q.prefix == "999.0.0.0/33"
+
+
+def test_show_allows_2char_prefix_below_blocklist_threshold():
+    # The blocklist uses `len(cmd) >= 3` before doing prefix matching.
+    # "show ru" → token "ru" is 2 chars → below the threshold → passes validation.
+    # On IOS, "ru" abbreviates to "running-config". This is a documented trade-off:
+    # blocking 1-2 char tokens would cause too many false positives on legitimate
+    # short tokens. The device still controls what "ru" expands to.
+    q = ShowCommand(device="D1C", command="show ru")
+    assert q.command == "show ru"

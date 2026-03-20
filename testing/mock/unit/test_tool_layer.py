@@ -1,14 +1,16 @@
 """UT-011 — Tool layer: known/unknown devices, platform restrictions."""
 import asyncio
 import sys
+from unittest.mock import patch
 
 import pytest
 
 # Import tools after conftest has injected mocks
 from tools.protocol import get_ospf, get_bgp, get_eigrp
-from tools.operational import get_interfaces
+from tools.operational import get_interfaces, run_show
 from tools.routing import get_routing, get_routing_policies
-from input_models.models import OspfQuery, BgpQuery, EigrpQuery, InterfacesQuery, RoutingQuery, RoutingPolicyQuery
+from tools.state import get_intent
+from input_models.models import OspfQuery, BgpQuery, EigrpQuery, InterfacesQuery, RoutingQuery, RoutingPolicyQuery, ShowCommand, EmptyInput
 
 
 def _get_mock_execute():
@@ -232,3 +234,60 @@ def test_routing_policies_unknown_device_returns_error():
     result = asyncio.run(get_routing_policies(RoutingPolicyQuery(device="NO_SUCH_DEVICE", query="route_maps")))
     assert "error" in result
     assert "Unknown device" in result["error"]
+
+
+# ── run_show ──────────────────────────────────────────────────────────────────
+
+def test_run_show_known_device_returns_raw():
+    mock_execute = _get_mock_execute()
+    mock_execute.reset_mock()
+    mock_execute.return_value = {"raw": "ospf output", "cli_style": "ios", "device": "D1C"}
+    result = asyncio.run(run_show(ShowCommand(device="D1C", command="show ip ospf neighbor")))
+    assert "error" not in result
+    assert result["raw"] == "ospf output"
+    assert result["device"] == "D1C"
+    assert result["cli_style"] == "ios"
+    mock_execute.assert_called_once_with("D1C", "show ip ospf neighbor")
+
+
+def test_run_show_unknown_device_returns_error():
+    result = asyncio.run(run_show(ShowCommand(device="FAKE_DEVICE", command="show ip route")))
+    assert "error" in result
+    assert "Unknown device" in result["error"]
+
+
+def test_run_show_command_stripped():
+    # run_show calls params.command.strip() before passing to execute_command.
+    # ShowCommand validator returns the original unstripped value, so .strip() is real work.
+    mock_execute = _get_mock_execute()
+    mock_execute.reset_mock()
+    mock_execute.return_value = {"raw": "route output", "cli_style": "ios", "device": "D1C"}
+    result = asyncio.run(run_show(ShowCommand(device="D1C", command="  show ip route  ")))
+    assert "error" not in result
+    mock_execute.assert_called_once_with("D1C", "show ip route")
+
+
+# ── get_intent ────────────────────────────────────────────────────────────────
+# get_intent uses a lazy import inside the function body, so patching
+# sys.modules["core.netbox"].load_intent controls its behavior at call time.
+
+def test_get_intent_returns_intent_when_available():
+    with patch.object(sys.modules["core.netbox"], "load_intent", return_value={"routers": {"R1": {}}}):
+        result = asyncio.run(get_intent(EmptyInput()))
+    assert result == {"routers": {"R1": {}}}
+    assert "error" not in result
+
+
+def test_get_intent_returns_error_when_netbox_returns_none():
+    # load_intent returning None (or falsy) triggers the error response path.
+    with patch.object(sys.modules["core.netbox"], "load_intent", return_value=None):
+        result = asyncio.run(get_intent(EmptyInput()))
+    assert "error" in result
+
+
+def test_get_intent_returns_error_when_netbox_raises():
+    # get_intent has bare `except Exception: pass` — verifies the exception is swallowed
+    # and an error dict is returned instead of propagating to the caller.
+    with patch.object(sys.modules["core.netbox"], "load_intent", side_effect=ConnectionError("timeout")):
+        result = asyncio.run(get_intent(EmptyInput()))
+    assert "error" in result

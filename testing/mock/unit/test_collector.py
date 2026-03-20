@@ -5,7 +5,7 @@ import sys
 import pytest
 
 from validation.assertions import Assertion, AssertionType
-from validation.collector import _plan_queries, _collect_device
+from validation.collector import _plan_queries, _collect_device, collect_state
 
 
 def _make(atype, device="R1"):
@@ -189,4 +189,68 @@ def test_collect_device_multiple_queries_populates_multiple_fields():
     calls = [c.args for c in mock.call_args_list]
     assert ("D1C", "show ip interface brief") in calls
     assert ("D1C", "show ip ospf neighbor") in calls
+    mock.side_effect = None  # reset for subsequent tests
+
+
+# ── collect_state (public aggregator) ─────────────────────────────────────────
+# Tests the asyncio.gather orchestration that wraps _collect_device.
+# Uses real device names from the mock inventory (NETWORK.json): D1C and C2A.
+
+_EOS_INTF_RAW = (
+    "                                                              Address\n"
+    "Interface         IP Address           Status     Protocol    MTU  Owner\n"
+    "Ethernet1         10.0.0.1/30          up         up          1500\n"
+)
+
+
+def test_collect_state_aggregates_multiple_devices():
+    mock = _get_mock_execute()
+    mock.reset_mock()
+
+    def _side_effect(device, cmd):
+        if device == "D1C":
+            return {"raw": _IOS_INTF_RAW, "cli_style": "ios", "device": "D1C"}
+        if device == "C2A":
+            return {"raw": _EOS_INTF_RAW, "cli_style": "eos", "device": "C2A"}
+        return {"error": "Unknown", "device": device}
+
+    mock.side_effect = _side_effect
+
+    assertions = [
+        Assertion(type=AssertionType.INTERFACE_UP, device="D1C", description="", expected="up/up"),
+        Assertion(type=AssertionType.INTERFACE_UP, device="C2A", description="", expected="up/up"),
+    ]
+    state = asyncio.run(collect_state(assertions))
+
+    assert "D1C" in state
+    assert "C2A" in state
+    assert state["D1C"].interfaces is not None
+    assert "GigabitEthernet2" in state["D1C"].interfaces
+    assert state["C2A"].interfaces is not None
+    assert "Ethernet1" in state["C2A"].interfaces
+
+    mock.side_effect = None  # reset for subsequent tests
+
+
+def test_collect_state_partial_failure_records_error():
+    mock = _get_mock_execute()
+    mock.reset_mock()
+
+    def _side_effect(device, cmd):
+        if device == "D1C":
+            return {"raw": _IOS_INTF_RAW, "cli_style": "ios", "device": "D1C"}
+        return {"error": "SSH timeout", "device": device}
+
+    mock.side_effect = _side_effect
+
+    assertions = [
+        Assertion(type=AssertionType.INTERFACE_UP, device="D1C", description="", expected="up/up"),
+        Assertion(type=AssertionType.INTERFACE_UP, device="C2A", description="", expected="up/up"),
+    ]
+    state = asyncio.run(collect_state(assertions))
+
+    assert state["D1C"].interfaces is not None
+    assert state["C2A"].interfaces is None
+    assert any("interfaces" in e for e in state["C2A"].errors)
+
     mock.side_effect = None  # reset for subsequent tests

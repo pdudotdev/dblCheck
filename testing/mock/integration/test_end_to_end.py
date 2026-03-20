@@ -531,3 +531,115 @@ def test_contract_eigrp_neighbor_normalizer_to_evaluator():
     )
     results = evaluate([a], {"R1": ds})
     assert results[0].result == AssertionResult.PASS
+
+
+# ── Non-IOS interface contract tests ──────────────────────────────────────────
+# Each test verifies the normalizer→evaluator data shape contract for one
+# non-IOS vendor. If a vendor normalizer renames a key in its output dict,
+# the per-vendor unit tests still pass but THESE tests catch the schema drift.
+
+_EOS_INTF_RAW = """\
+                                                              Address
+Interface         IP Address           Status     Protocol    MTU  Owner
+Ethernet1         10.0.0.1/30          up         up          1500
+Ethernet2         10.0.0.5/30          down       down        1500
+"""
+
+_JUNOS_INTF_RAW = """\
+Interface               Admin Link Proto    Local                 Remote
+et-0/0/0                up    up   inet     10.0.0.1/30
+et-0/0/0.0              up    up   inet     10.0.0.1/30
+et-0/0/1                up    down
+et-0/0/1.0              up    down inet
+"""
+
+_AOS_INTF_RAW = """\
+Port    Native Vlan  Mode   Type    Enabled Status
+1/1/2   --           routed L3      yes     up
+1/1/3   --           routed L3      yes     down
+"""
+
+_ROUTEROS_INTF_RAW = """\
+Flags: D - dynamic, X - disabled, R - running, S - slave
+ 0  R  ether1                  ether    1500
+ 1  X  ether2                  ether    1500
+"""
+
+_VYOS_INTF_RAW = """\
+Codes: S - State, L - Link, u - Up, D - Down, A - Admin Down
+Interface        IP Address                        S/L  Description
+---------        ----------                        ---  -----------
+eth0             192.168.1.1/30                    u/u  WAN
+eth1             10.0.0.1/30                       u/u
+eth2             -                                 D/D
+"""
+
+
+def test_contract_eos_interface_normalizer_to_evaluator():
+    """EOS normalize_interfaces output feeds correctly into INTERFACE_UP evaluator."""
+    normalized = normalize_interfaces({"raw": _EOS_INTF_RAW, "cli_style": "eos"})
+    ds = DeviceState(interfaces=normalized)
+    a = Assertion(
+        type=AssertionType.INTERFACE_UP, device="R1",
+        description="R1 Ethernet1 should be up/up",
+        expected="up/up", interface="Ethernet1",
+    )
+    results = evaluate([a], {"R1": ds})
+    assert results[0].result == AssertionResult.PASS
+    assert results[0].actual == "up/up"
+
+
+def test_contract_junos_interface_normalizer_to_evaluator():
+    """JunOS normalize_interfaces output feeds correctly into INTERFACE_UP evaluator."""
+    normalized = normalize_interfaces({"raw": _JUNOS_INTF_RAW, "cli_style": "junos"})
+    ds = DeviceState(interfaces=normalized)
+    a = Assertion(
+        type=AssertionType.INTERFACE_UP, device="R1",
+        description="R1 et-0/0/0 should be up/up",
+        expected="up/up", interface="et-0/0/0",
+    )
+    results = evaluate([a], {"R1": ds})
+    assert results[0].result == AssertionResult.PASS
+    assert results[0].actual == "up/up"
+
+
+def test_contract_aos_interface_normalizer_to_evaluator():
+    """AOS normalize_interfaces output feeds correctly into INTERFACE_UP evaluator."""
+    normalized = normalize_interfaces({"raw": _AOS_INTF_RAW, "cli_style": "aos"})
+    ds = DeviceState(interfaces=normalized)
+    a = Assertion(
+        type=AssertionType.INTERFACE_UP, device="R1",
+        description="R1 1/1/2 should be up/up",
+        expected="up/up", interface="1/1/2",
+    )
+    results = evaluate([a], {"R1": ds})
+    assert results[0].result == AssertionResult.PASS
+    assert results[0].actual == "up/up"
+
+
+def test_contract_routeros_interface_normalizer_to_evaluator():
+    """RouterOS normalize_interfaces output feeds correctly into INTERFACE_UP evaluator."""
+    normalized = normalize_interfaces({"raw": _ROUTEROS_INTF_RAW, "cli_style": "routeros"})
+    ds = DeviceState(interfaces=normalized)
+    a = Assertion(
+        type=AssertionType.INTERFACE_UP, device="R1",
+        description="R1 ether1 should be up/up",
+        expected="up/up", interface="ether1",
+    )
+    results = evaluate([a], {"R1": ds})
+    assert results[0].result == AssertionResult.PASS
+    assert results[0].actual == "up/up"
+
+
+def test_contract_vyos_interface_normalizer_to_evaluator():
+    """VyOS normalize_interfaces output feeds correctly into INTERFACE_UP evaluator."""
+    normalized = normalize_interfaces({"raw": _VYOS_INTF_RAW, "cli_style": "vyos"})
+    ds = DeviceState(interfaces=normalized)
+    a = Assertion(
+        type=AssertionType.INTERFACE_UP, device="R1",
+        description="R1 eth0 should be up/up",
+        expected="up/up", interface="eth0",
+    )
+    results = evaluate([a], {"R1": ds})
+    assert results[0].result == AssertionResult.PASS
+    assert results[0].actual == "up/up"
