@@ -1,22 +1,27 @@
 """UT-012 — Helper functions: _error_response, _looks_like_ip, box drawing,
 _failure_fingerprint, _build_parser, _safe, _extract_diagnosis_text."""
-import argparse
 import json
 
 import pytest
 
-from tools import _error_response
-from validation.normalizers import _looks_like_ip
-
 # Import CLI helpers — conftest.py has mocked core.logging_config so setup_logging() is a no-op
 from cli.dblcheck import (
-    _box_top, _box_row, _box_bot, _failure_fingerprint, _build_parser,
-    _safe, _extract_diagnosis_text,
+    _box_bot,
+    _box_row,
+    _box_top,
+    _build_parser,
+    _extract_diagnosis_text,
+    _failure_fingerprint,
+    _safe,
 )
+from tools import _error_response
 from validation.assertions import (
-    Assertion, AssertionType, AssertionResult, EvaluatedAssertion,
+    Assertion,
+    AssertionResult,
+    AssertionType,
+    EvaluatedAssertion,
 )
-
+from validation.normalizers import _looks_like_ip
 
 # ── _error_response ───────────────────────────────────────────────────────────
 

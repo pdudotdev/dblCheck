@@ -2,8 +2,11 @@
 import re
 
 from validation.assertions import (
-    Assertion, AssertionType, AssertionResult,
-    EvaluatedAssertion, DeviceState,
+    Assertion,
+    AssertionResult,
+    AssertionType,
+    DeviceState,
+    EvaluatedAssertion,
 )
 
 

@@ -6,18 +6,18 @@ sequentially to avoid SSH session conflicts.
 import asyncio
 import logging
 
-from core.settings     import SSH_MAX_CONCURRENT
-from transport         import open_device_session, close_device_session
-from input_models.models import OspfQuery, BgpQuery, EigrpQuery, InterfacesQuery
-from tools.protocol    import get_ospf, get_bgp, get_eigrp
+from core.settings import SSH_MAX_CONCURRENT
+from input_models.models import BgpQuery, EigrpQuery, InterfacesQuery, OspfQuery
 from tools.operational import get_interfaces
-from validation.assertions import AssertionType, Assertion, DeviceState
+from tools.protocol import get_bgp, get_eigrp, get_ospf
+from transport import close_device_session, open_device_session
+from validation.assertions import Assertion, AssertionType, DeviceState
 from validation.normalizers import (
-    normalize_interfaces,
-    normalize_ospf_neighbors,
-    normalize_ospf_details,
     normalize_bgp_summary,
     normalize_eigrp_neighbors,
+    normalize_interfaces,
+    normalize_ospf_details,
+    normalize_ospf_neighbors,
 )
 
 log = logging.getLogger("dblcheck.validation.collector")

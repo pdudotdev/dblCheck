@@ -33,17 +33,20 @@ sys.path.insert(0, str(_PROJECT_ROOT))
 import logging
 
 from core.logging_config import setup_logging
+
 setup_logging()
 log = logging.getLogger("dblcheck.cli")
 
 from validation.assertions import AssertionResult
 from validation.derivation import derive_assertions
-from validation.evaluator  import evaluate
-from validation.report     import format_text, format_run_dict
+from validation.evaluator import evaluate
+from validation.report import format_run_dict, format_text
+
 # collector transitively imports core.inventory/netbox/vault/settings at module
 # scope; suppress the resulting INFO logs (startup banner shows the same info).
 logging.getLogger("dblcheck").setLevel(logging.WARNING)
-from validation.collector  import collect_state
+from validation.collector import collect_state
+
 logging.getLogger("dblcheck").setLevel(logging.INFO)
 
 # ── Data directory paths ──────────────────────────────────────────────────────
@@ -272,8 +275,8 @@ def _build_parser() -> argparse.ArgumentParser:
 
 
 async def _run(args) -> int:
-    from core.settings import USERNAME, PASSWORD
     from core.inventory import devices, inventory_source
+    from core.settings import PASSWORD, USERNAME
     from core.vault import credential_source
 
     def _fail(msg: str) -> None:

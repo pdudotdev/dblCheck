@@ -26,7 +26,8 @@ import time
 import urllib.parse
 from pathlib import Path
 
-from websockets.asyncio.server import serve, broadcast as ws_broadcast
+from websockets.asyncio.server import broadcast as ws_broadcast
+from websockets.asyncio.server import serve
 from websockets.datastructures import Headers
 from websockets.http11 import Response
 
@@ -51,6 +52,7 @@ HOST = os.getenv("DASHBOARD_HOST", "127.0.0.1")
 # Stored in Vault at dblcheck/dashboard key "token", or DASHBOARD_TOKEN env var.
 sys.path.insert(0, str(PROJECT_DIR))
 from core.vault import get_secret as _get_secret
+
 _DASHBOARD_TOKEN: str = _get_secret("dblcheck/dashboard", "token",
                                      fallback_env="DASHBOARD_TOKEN", quiet=True) or ""
 

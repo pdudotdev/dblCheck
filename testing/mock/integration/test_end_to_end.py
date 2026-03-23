@@ -3,22 +3,19 @@
 Uses a synthetic two-device intent to avoid SSH connections.
 Verifies all-healthy (all PASS) and broken (FAIL present) scenarios.
 """
-import json
 
-import pytest
 
-from validation.assertions import Assertion, AssertionType, AssertionResult, DeviceState
+from validation.assertions import Assertion, AssertionResult, AssertionType, DeviceState
 from validation.derivation import derive_assertions
 from validation.evaluator import evaluate
-from validation.report import format_text, format_run_dict
 from validation.normalizers import (
-    normalize_interfaces,
-    normalize_ospf_neighbors,
-    normalize_ospf_details,
     normalize_bgp_summary,
     normalize_eigrp_neighbors,
+    normalize_interfaces,
+    normalize_ospf_details,
+    normalize_ospf_neighbors,
 )
-
+from validation.report import format_run_dict, format_text
 
 # ── Minimal synthetic intent ──────────────────────────────────────────────────
 # Two routers connected via 10.0.0.0/30, running OSPF area 0.

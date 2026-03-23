@@ -1,7 +1,6 @@
 """UT-004 — EIGRP neighbor normalizer (IOS only)."""
 from validation.normalizers import normalize_eigrp_neighbors
 
-
 # ── Fixtures ──────────────────────────────────────────────────────────────────
 
 EIGRP_SINGLE = """\

@@ -2,10 +2,8 @@
 import asyncio
 import sys
 
-import pytest
-
 from validation.assertions import Assertion, AssertionType
-from validation.collector import _plan_queries, _collect_device, collect_state
+from validation.collector import _collect_device, _plan_queries, collect_state
 
 
 def _make(atype, device="R1"):

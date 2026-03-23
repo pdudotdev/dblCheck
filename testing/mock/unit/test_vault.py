@@ -1,10 +1,7 @@
 """UT-013 — Vault client: get_secret() and credential_source()."""
 import sys
 from pathlib import Path
-from types import ModuleType
 from unittest.mock import MagicMock, patch
-
-import pytest
 
 # ── Import the real vault module directly (bypassing conftest stubs) ──────────
 # conftest.py replaces core.vault with a stub. We need the real implementation.
@@ -12,7 +9,7 @@ import pytest
 _ROOT = Path(__file__).resolve().parent.parent.parent.parent
 sys.path.insert(0, str(_ROOT))
 
-import importlib, types
+import importlib
 
 # Load the real vault source as a standalone module to avoid conftest stub
 _vault_spec = importlib.util.spec_from_file_location(
@@ -21,6 +18,7 @@ _vault_spec = importlib.util.spec_from_file_location(
 _vault_mod = importlib.util.module_from_spec(_vault_spec)
 # Inject a real logging module so vault.py's log = logging.getLogger(...) works
 import logging as _logging
+
 _vault_mod.__dict__["logging"] = _logging
 _vault_mod.__dict__["os"] = __import__("os")
 _vault_spec.loader.exec_module(_vault_mod)

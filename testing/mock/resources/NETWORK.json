@@ -1,0 +1,18 @@
+{
+    "A1M":  {"host": "172.20.20.201", "platform": "mikrotik_routeros", "transport": "asyncssh", "cli_style": "routeros", "location": "Access",        "vrf": "VRF1"},
+    "A2A":  {"host": "172.20.20.202", "platform": "arista_eos",         "transport": "asyncssh", "cli_style": "eos",     "location": "Access",        "vrf": "VRF1"},
+    "A3A":  {"host": "172.20.20.203", "platform": "arista_eos",         "transport": "asyncssh", "cli_style": "eos",     "location": "Access",        "vrf": "VRF1"},
+    "A4M":  {"host": "172.20.20.204", "platform": "mikrotik_routeros", "transport": "asyncssh", "cli_style": "routeros", "location": "Access",        "vrf": "VRF1"},
+    "D1C":  {"host": "172.20.20.205", "platform": "cisco_iosxe",       "transport": "asyncssh", "cli_style": "ios",      "location": "Distribution",  "vrf": "VRF1"},
+    "D2B":  {"host": "172.20.20.206", "platform": "aruba_aoscx",       "transport": "asyncssh", "cli_style": "aos",      "location": "Distribution",  "vrf": "default"},
+    "C1J":  {"host": "172.20.20.207", "platform": "juniper_junos",     "transport": "asyncssh", "cli_style": "junos",    "location": "Core",          "vrf": "VRF1"},
+    "C2A":  {"host": "172.20.20.208", "platform": "arista_eos",        "transport": "asyncssh", "cli_style": "eos",      "location": "Core",          "vrf": "VRF1"},
+    "E1C":  {"host": "172.20.20.209", "platform": "cisco_iosxe",       "transport": "asyncssh", "cli_style": "ios",      "location": "Edge",          "vrf": "VRF1"},
+    "E2C":  {"host": "172.20.20.210", "platform": "cisco_iosxe",       "transport": "asyncssh", "cli_style": "ios",      "location": "Edge",          "vrf": "VRF1"},
+    "B1C":  {"host": "172.20.20.211", "platform": "cisco_iosxe",       "transport": "asyncssh", "cli_style": "ios",      "location": "Local Branch",  "vrf": "VRF1"},
+    "B2C":  {"host": "172.20.20.212", "platform": "cisco_iosxe",       "transport": "asyncssh", "cli_style": "ios",      "location": "Local Branch",  "vrf": "VRF1"},
+    "DC1A": {"host": "172.20.20.219", "platform": "arista_eos",         "transport": "asyncssh", "cli_style": "eos",     "location": "Data Center",   "vrf": "VRF1"},
+    "IAN":  {"host": "172.20.20.220", "platform": "cisco_iosxe",       "transport": "asyncssh", "cli_style": "ios",      "location": "ISP A",         "vrf": "VRF1"},
+    "IBN":  {"host": "172.20.20.230", "platform": "cisco_iosxe",       "transport": "asyncssh", "cli_style": "ios",      "location": "ISP B",         "vrf": "VRF1"},
+    "X1C":  {"host": "172.20.20.240", "platform": "cisco_iosxe",       "transport": "asyncssh", "cli_style": "ios",      "location": "Remote Branch", "vrf": "VRF1"}
+}

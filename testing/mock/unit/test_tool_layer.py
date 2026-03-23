@@ -3,14 +3,22 @@ import asyncio
 import sys
 from unittest.mock import patch
 
-import pytest
+from input_models.models import (
+    BgpQuery,
+    EigrpQuery,
+    EmptyInput,
+    InterfacesQuery,
+    OspfQuery,
+    RoutingPolicyQuery,
+    RoutingQuery,
+    ShowCommand,
+)
+from tools.operational import get_interfaces, run_show
 
 # Import tools after conftest has injected mocks
-from tools.protocol import get_ospf, get_bgp, get_eigrp
-from tools.operational import get_interfaces, run_show
+from tools.protocol import get_bgp, get_eigrp, get_ospf
 from tools.routing import get_routing, get_routing_policies
 from tools.state import get_intent
-from input_models.models import OspfQuery, BgpQuery, EigrpQuery, InterfacesQuery, RoutingQuery, RoutingPolicyQuery, ShowCommand, EmptyInput
 
 
 def _get_mock_execute():

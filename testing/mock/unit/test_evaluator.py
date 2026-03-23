@@ -2,10 +2,12 @@
 import pytest
 
 from validation.assertions import (
-    Assertion, AssertionType, AssertionResult, DeviceState,
+    Assertion,
+    AssertionResult,
+    AssertionType,
+    DeviceState,
 )
-from validation.evaluator import evaluate, _interface_matches
-
+from validation.evaluator import _interface_matches, evaluate
 
 # ── INTERFACE_UP ──────────────────────────────────────────────────────────────
 

@@ -1,0 +1,35 @@
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors — style violations (indentation, whitespace, line length)
+    "F",   # pyflakes — logic errors (undefined names, unused imports, redefined variables)
+    "W",   # pycodestyle warnings — less severe style issues (trailing whitespace, blank lines)
+    "I",   # isort — import ordering and grouping
+]
+
+[tool.ruff.lint.per-file-ignores]
+"testing/**" = ["E501"]  # Allow long lines in test files (embedded CLI output fixtures)
+
+# Entry-point files insert the project root into sys.path before importing project
+# modules — imports after sys.path manipulation are intentional (E402).
+"cli/dblcheck.py"           = ["E402", "E501"]  # sys.path insert + long diagnostic strings
+"server/MCPServer.py"       = ["E402"]
+"deploy/dblcheck_daemon.py" = ["E402"]
+"dashboard/ws_bridge.py"    = ["E402"]
+"testing/live/**"           = ["E402"]  # Live test files also manipulate sys.path
+"testing/mock/unit/test_vault.py"       = ["E402"]  # Loads real vault module via importlib
+"testing/mock/unit/test_jira_client.py" = ["E402"]  # Loads real jira module via importlib
+
+# Long lines in platform command maps and tool error messages are unavoidable —
+# breaking these strings across lines harms readability.
+"platforms/platform_map.py" = ["E501"]
+"tools/**"                  = ["E501"]
+
+
+[tool.pyright]
+include = ["input_models"]
+pythonVersion = "3.12"
+typeCheckingMode = "basic"

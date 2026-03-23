@@ -8,9 +8,7 @@ import json
 import sys
 from pathlib import Path
 from types import ModuleType
-from unittest.mock import MagicMock, patch
-
-import pytest
+from unittest.mock import MagicMock
 
 # ── Load the real ws_bridge module with its optional dependencies mocked ──────
 # ws_bridge imports websockets and core.vault at module level.

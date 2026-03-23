@@ -21,8 +21,6 @@ Requires live device access. Set NO_LAB=0 to enable.
 
 import asyncio
 import os
-import sys
-from collections import OrderedDict
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -35,15 +33,18 @@ pytestmark = pytest.mark.skipif(
     reason="Lab not running — set NO_LAB=0 to enable live tests",
 )
 
-from platforms.platform_map import PLATFORM_MAP
-from tools.protocol import get_ospf, get_bgp, get_eigrp
-from tools.routing import get_routing, get_routing_policies
-from tools.operational import get_interfaces
 from input_models.models import (
-    OspfQuery, BgpQuery, EigrpQuery,
-    RoutingQuery, RoutingPolicyQuery, InterfacesQuery,
+    BgpQuery,
+    EigrpQuery,
+    InterfacesQuery,
+    OspfQuery,
+    RoutingPolicyQuery,
+    RoutingQuery,
 )
-
+from platforms.platform_map import PLATFORM_MAP
+from tools.operational import get_interfaces
+from tools.protocol import get_bgp, get_eigrp, get_ospf
+from tools.routing import get_routing, get_routing_policies
 
 # ── Representative devices (1 per vendor) ─────────────────────────────────────
 

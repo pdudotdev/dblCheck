@@ -13,7 +13,7 @@ import json
 import logging
 import os
 import sys
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -22,6 +22,7 @@ sys.path.insert(0, str(_PROJECT_ROOT))
 _STATE_FILE = _PROJECT_ROOT / "data" / "dashboard_state.json"
 
 from core.logging_config import setup_logging
+
 setup_logging()
 
 log = logging.getLogger("dblcheck.daemon")
@@ -146,9 +147,14 @@ async def _validation_loop() -> None:
 async def _bridge() -> None:
     """Run the WebSocket dashboard bridge."""
     from websockets.asyncio.server import serve
+
     from dashboard.ws_bridge import (
-        ws_handler, _http_handler, watch_state_file, PORT, HOST,
+        HOST,
+        PORT,
+        _http_handler,
         register_stop_callback,
+        watch_state_file,
+        ws_handler,
     )
     register_stop_callback(request_stop)
     log.info("Dashboard bridge starting on port %d", PORT)

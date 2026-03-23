@@ -1,7 +1,5 @@
 """UT-001 — Interface normalizers for all 6 vendors."""
-import pytest
 from validation.normalizers import normalize_interfaces
-
 
 # ── IOS / IOS-XE ──────────────────────────────────────────────────────────────
 IOS_INTF_OUTPUT = """\

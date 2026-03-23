@@ -18,8 +18,8 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from dotenv import load_dotenv
 import pynetbox
+from dotenv import load_dotenv
 
 from core.vault import get_secret
 

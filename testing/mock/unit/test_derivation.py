@@ -2,11 +2,8 @@
 import json
 from pathlib import Path
 
-import pytest
-
 from validation.assertions import AssertionType
 from validation.derivation import derive_assertions
-
 
 _INTENT = json.loads((Path(__file__).parent.parent.parent.parent / "legacy" / "INTENT.json").read_text())
 

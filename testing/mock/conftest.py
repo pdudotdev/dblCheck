@@ -52,7 +52,7 @@ _jira_mod.add_comment = AsyncMock(return_value=None)
 sys.modules["core.jira_client"] = _jira_mod
 
 # ── Step 2: Load NETWORK.json as mock device inventory ────────────────────────
-_NETWORK_JSON = _ROOT / "legacy" / "NETWORK.json"
+_NETWORK_JSON = _ROOT / "testing" / "mock" / "resources" / "NETWORK.json"
 MOCK_DEVICES: dict = json.loads(_NETWORK_JSON.read_text())
 
 # core.netbox — prevent NetBox connections
@@ -78,7 +78,7 @@ _transport_mod.close_device_session = AsyncMock()
 sys.modules["transport"] = _transport_mod
 
 # ── Step 4: Load legacy/INTENT.json as mock intent ────────────────────────────
-_INTENT_JSON = _ROOT / "legacy" / "INTENT.json"
+_INTENT_JSON = _ROOT / "testing" / "mock" / "resources" / "INTENT.json"
 MOCK_INTENT: dict = json.loads(_INTENT_JSON.read_text())
 
 

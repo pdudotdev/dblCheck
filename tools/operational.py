@@ -1,9 +1,9 @@
 """Operational tools: get_interfaces, run_show."""
 from core.inventory import devices
-from platforms.platform_map import get_action
-from transport import execute_command
 from input_models.models import InterfacesQuery, ShowCommand
+from platforms.platform_map import get_action
 from tools import _error_response
+from transport import execute_command
 
 
 async def get_interfaces(params: InterfacesQuery) -> dict:

@@ -1,12 +1,13 @@
 """UT-010 — Report formatting: text, JSON, and run_dict."""
-import json
 
-import pytest
 
 from validation.assertions import (
-    Assertion, AssertionType, AssertionResult, EvaluatedAssertion,
+    Assertion,
+    AssertionResult,
+    AssertionType,
+    EvaluatedAssertion,
 )
-from validation.report import format_text, format_run_dict
+from validation.report import format_run_dict, format_text
 
 
 def _make_pass(device="R1", interface="eth0"):

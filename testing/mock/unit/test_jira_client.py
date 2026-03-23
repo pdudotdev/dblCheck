@@ -8,7 +8,7 @@ import importlib.util
 import sys
 from pathlib import Path
 from types import ModuleType
-from unittest.mock import MagicMock, AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -166,7 +166,7 @@ def test_create_issue_returns_none_when_not_configured(monkeypatch):
 # Uses unittest.mock to patch httpx.AsyncClient so no real HTTP is made.
 
 import asyncio
-from unittest.mock import AsyncMock, MagicMock, patch as _patch
+from unittest.mock import patch as _patch
 
 
 @pytest.fixture

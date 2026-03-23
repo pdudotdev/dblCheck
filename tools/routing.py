@@ -1,9 +1,9 @@
 """Routing table and policy tools: get_routing, get_routing_policies."""
 from core.inventory import devices
+from input_models.models import RoutingPolicyQuery, RoutingQuery
 from platforms.platform_map import get_action
-from transport import execute_command
-from input_models.models import RoutingQuery, RoutingPolicyQuery
 from tools import _error_response
+from transport import execute_command
 
 
 async def get_routing(params: RoutingQuery) -> dict:

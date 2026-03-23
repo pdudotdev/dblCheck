@@ -1,9 +1,9 @@
 """Protocol diagnostic tools: get_ospf, get_bgp, get_eigrp."""
 from core.inventory import devices
+from input_models.models import BgpQuery, EigrpQuery, OspfQuery
 from platforms.platform_map import get_action
-from transport import execute_command
-from input_models.models import OspfQuery, BgpQuery, EigrpQuery
 from tools import _error_response
+from transport import execute_command
 
 
 async def get_ospf(params: OspfQuery) -> dict:

@@ -4,7 +4,9 @@ import logging
 
 from core.inventory import devices
 from core.settings import SSH_MAX_CONCURRENT
-from transport.ssh     import execute_ssh, open_session as _ssh_open, close_session as _ssh_close
+from transport.ssh import close_session as _ssh_close
+from transport.ssh import execute_ssh
+from transport.ssh import open_session as _ssh_open
 
 log = logging.getLogger("dblcheck.transport")
 

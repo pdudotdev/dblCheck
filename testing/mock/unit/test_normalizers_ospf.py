@@ -1,12 +1,12 @@
 """UT-002 — OSPF normalizers: neighbors, details, and helpers."""
 import pytest
-from validation.normalizers import (
-    normalize_ospf_neighbors,
-    normalize_ospf_details,
-    _normalize_ospf_state,
-    _area_id_to_int,
-)
 
+from validation.normalizers import (
+    _area_id_to_int,
+    _normalize_ospf_state,
+    normalize_ospf_details,
+    normalize_ospf_neighbors,
+)
 
 # ── IOS OSPF neighbor fixture ─────────────────────────────────────────────────
 IOS_OSPF_NBR = """\

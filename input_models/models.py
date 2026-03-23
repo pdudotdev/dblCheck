@@ -6,8 +6,8 @@ import ipaddress
 import json
 import re
 from typing import Literal
-from pydantic import BaseModel, Field, field_validator, model_validator
 
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 # Compiled patterns for parameter validation
 _VRF_RE    = re.compile(r'^[a-zA-Z0-9_-]{1,32}$')

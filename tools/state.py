@@ -1,9 +1,9 @@
 """Network state tools: get_intent."""
 import logging
 
-log = logging.getLogger("dblcheck.tools.state")
-
 from input_models.models import EmptyInput
+
+log = logging.getLogger("dblcheck.tools.state")
 
 
 async def get_intent(params: EmptyInput) -> dict:

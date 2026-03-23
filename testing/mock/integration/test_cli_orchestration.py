@@ -5,13 +5,10 @@ and exit-code contract — without running real SSH or the AI diagnosis subproce
 """
 import asyncio
 import importlib.util
-import json
 import sys
 from pathlib import Path
 from types import ModuleType
 from unittest.mock import AsyncMock, MagicMock, patch
-
-import pytest
 
 _ROOT = Path(__file__).resolve().parent.parent.parent.parent
 
@@ -223,7 +220,7 @@ def test_run_exits_2_when_failures_present(tmp_path):
 
 def test_failure_fingerprint_stable():
     """Same failure set always produces the same fingerprint."""
-    from validation.assertions import AssertionType, Assertion, AssertionResult, EvaluatedAssertion
+    from validation.assertions import Assertion, AssertionResult, AssertionType, EvaluatedAssertion
     a = Assertion(
         type=AssertionType.INTERFACE_UP,
         device="R1",
@@ -239,7 +236,7 @@ def test_failure_fingerprint_stable():
 
 
 def test_failure_fingerprint_differs_for_different_failures():
-    from validation.assertions import AssertionType, Assertion, AssertionResult, EvaluatedAssertion
+    from validation.assertions import Assertion, AssertionResult, AssertionType, EvaluatedAssertion
     a1 = Assertion(type=AssertionType.INTERFACE_UP, device="R1",
                    description="", expected="up/up")
     a2 = Assertion(type=AssertionType.BGP_SESSION, device="R2",

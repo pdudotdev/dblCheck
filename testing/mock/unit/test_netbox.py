@@ -5,8 +5,6 @@ from pathlib import Path
 from types import ModuleType
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 _ROOT = Path(__file__).resolve().parent.parent.parent.parent
 
 # Stub core.vault

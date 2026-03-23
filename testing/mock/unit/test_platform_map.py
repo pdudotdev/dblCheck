@@ -1,8 +1,7 @@
 """UT-008 — PLATFORM_MAP structure and get_action() behaviour."""
 import pytest
 
-from platforms.platform_map import PLATFORM_MAP, get_action, _apply_vrf
-
+from platforms.platform_map import PLATFORM_MAP, _apply_vrf, get_action
 
 _VENDORS = ["ios", "eos", "junos", "aos", "routeros", "vyos"]
 _REQUIRED_CATEGORIES = ["ospf", "bgp", "routing_table", "routing_policies", "interfaces"]

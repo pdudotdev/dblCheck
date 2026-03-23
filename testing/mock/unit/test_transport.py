@@ -9,9 +9,7 @@ import importlib.util
 import sys
 from pathlib import Path
 from types import ModuleType
-from unittest.mock import AsyncMock, MagicMock, patch
-
-import pytest
+from unittest.mock import AsyncMock, patch
 
 _ROOT = Path(__file__).resolve().parent.parent.parent.parent
 

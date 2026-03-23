@@ -2,20 +2,16 @@
 
 Generates testing/integration/platform_coverage_results.md as a side effect.
 """
-import re
 from pathlib import Path
-
-import pytest
 
 from platforms.platform_map import PLATFORM_MAP
 from validation.normalizers import (
-    _INTERFACE_PARSERS,
-    _OSPF_NEIGHBOR_PARSERS,
-    _OSPF_DETAIL_PARSERS,
     _BGP_SUMMARY_PARSERS,
     _EIGRP_NEIGHBOR_PARSERS,
+    _INTERFACE_PARSERS,
+    _OSPF_DETAIL_PARSERS,
+    _OSPF_NEIGHBOR_PARSERS,
 )
-
 
 _VENDORS = ["ios", "eos", "junos", "aos", "routeros", "vyos"]
 _REQUIRED_CATEGORIES = ["ospf", "bgp", "routing_table", "routing_policies", "interfaces"]
@@ -144,7 +140,7 @@ class TestCommandCoverage:
 
     def test_no_failed_entries(self):
         failed = [e for e in self.entries if e["status"] == "FAIL"]
-        assert not failed, f"Failed entries:\n" + "\n".join(
+        assert not failed, "Failed entries:\n" + "\n".join(
             f"  {e['vendor']}/{e['category']}/{e['query']}: {e['issues']}"
             for e in failed
         )
@@ -222,7 +218,7 @@ class TestNormalizerCoverage:
 
     def test_no_failed_entries(self):
         failed = [e for e in self.entries if e["status"] == "FAIL"]
-        assert not failed, f"Normalizer coverage failures:\n" + "\n".join(
+        assert not failed, "Normalizer coverage failures:\n" + "\n".join(
             f"  {e['normalizer']}/{e['vendor']}: has={e['has_parser']}, expected={e['expected']}"
             for e in failed
         )

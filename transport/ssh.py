@@ -3,13 +3,18 @@ import asyncio
 import logging
 import os
 
-from scrapli import Cli, AuthOptions, SessionOptions
-from scrapli.transport import BinOptions, Ssh2Options as TransportSsh2Options
+from scrapli import AuthOptions, Cli, SessionOptions
 from scrapli.exceptions import OpenException
+from scrapli.transport import BinOptions
+from scrapli.transport import Ssh2Options as TransportSsh2Options
+
 from core.settings import (
-    USERNAME, PASSWORD,
-    SSH_TIMEOUT_OPS, SSH_RETRIES, SSH_RETRY_DELAY,
+    PASSWORD,
+    SSH_RETRIES,
+    SSH_RETRY_DELAY,
     SSH_STRICT_HOST_KEY,
+    SSH_TIMEOUT_OPS,
+    USERNAME,
 )
 from core.vault import get_secret
 

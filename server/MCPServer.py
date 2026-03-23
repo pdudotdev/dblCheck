@@ -15,6 +15,7 @@ _PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(_PROJECT_ROOT))
 
 import logging
+
 from fastmcp import FastMCP
 
 from core.logging_config import setup_logging
@@ -22,11 +23,10 @@ from core.logging_config import setup_logging
 setup_logging()
 log = logging.getLogger("dblcheck")
 
-from tools.protocol    import get_ospf, get_bgp, get_eigrp
-from tools.routing     import get_routing, get_routing_policies
 from tools.operational import get_interfaces, run_show
-from tools.state       import get_intent
-
+from tools.protocol import get_bgp, get_eigrp, get_ospf
+from tools.routing import get_routing, get_routing_policies
+from tools.state import get_intent
 
 mcp = FastMCP("dblcheck")
 

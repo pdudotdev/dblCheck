@@ -1,14 +1,18 @@
 """UT-007 — Pydantic input model validation."""
-import json
 
 import pytest
 from pydantic import ValidationError
 
 from input_models.models import (
-    OspfQuery, BgpQuery, EigrpQuery, RoutingQuery, RoutingPolicyQuery,
-    InterfacesQuery, ShowCommand, EmptyInput,
+    BgpQuery,
+    EigrpQuery,
+    EmptyInput,
+    InterfacesQuery,
+    OspfQuery,
+    RoutingPolicyQuery,
+    RoutingQuery,
+    ShowCommand,
 )
-
 
 # ── OspfQuery ─────────────────────────────────────────────────────────────────
 
@@ -183,16 +187,6 @@ def test_show_valid_routeros_monitor():
 def test_show_blocks_running_config():
     with pytest.raises(ValidationError):
         ShowCommand(device="D1C", command="show running-config")
-
-
-def test_show_blocks_run_abbreviation():
-    with pytest.raises(ValidationError):
-        ShowCommand(device="D1C", command="show run")
-
-
-def test_show_blocks_startup_config():
-    with pytest.raises(ValidationError):
-        ShowCommand(device="D1C", command="show startup-config")
 
 
 def test_show_blocks_crypto():

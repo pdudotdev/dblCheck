@@ -1,7 +1,7 @@
 """UT-003 — BGP summary normalizers for all 6 vendors + state helper."""
 import pytest
-from validation.normalizers import normalize_bgp_summary, _normalize_bgp_state
 
+from validation.normalizers import _normalize_bgp_state, normalize_bgp_summary
 
 # ── IOS BGP summary fixture ───────────────────────────────────────────────────
 IOS_BGP_SUMMARY = """\

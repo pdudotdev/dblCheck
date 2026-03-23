@@ -12,7 +12,6 @@ import logging
 import os
 from datetime import datetime, timezone
 
-
 # Standard LogRecord attributes that should NOT be forwarded as extra JSON fields.
 _STANDARD_ATTRS = frozenset({
     "args", "created", "exc_info", "exc_text", "filename", "funcName",
