@@ -7,9 +7,9 @@
 | | |
 |---|---|
 | **Platforms** | ![Cisco IOS](https://img.shields.io/badge/Cisco_IOS-0d47a1) ![Cisco IOS-XE](https://img.shields.io/badge/Cisco_IOS--XE-0d47a1) ![Arista EOS](https://img.shields.io/badge/Arista_EOS-0d47a1) ![Juniper JunOS](https://img.shields.io/badge/Juniper_JunOS-0d47a1) ![Aruba AOS](https://img.shields.io/badge/Aruba_AOS-0d47a1) ![Vyatta VyOS](https://img.shields.io/badge/Vyatta_VyOS-0d47a1) ![MikroTik RouterOS](https://img.shields.io/badge/MikroTik_RouterOS-0d47a1) ![FRR](https://img.shields.io/badge/FRR-0d47a1) |
-| **Transport** | ![SSH](https://img.shields.io/badge/SSH%20CLI-1565c0) ![Scrapli](https://img.shields.io/badge/Scrapli-1565c0) |
-| **Integrations** | ![NetBox](https://img.shields.io/badge/NetBox-1976d2) ![HashiCorp Vault](https://img.shields.io/badge/HashiCorp_Vault-1976d2) ![Jira](https://img.shields.io/badge/Jira-1976d2) ![MCP](https://img.shields.io/badge/MCP-1976d2) |
-| **Avg. Cost per Agent Session** | ![Cost](https://img.shields.io/badge/%240.19-1e88e5) |
+| **Transport** | ![SSH](https://img.shields.io/badge/SSH%20CLI-1976d2) ![Scrapli](https://img.shields.io/badge/Scrapli-1976d2) |
+| **Integrations** | ![NetBox](https://img.shields.io/badge/NetBox-1e88e5) ![HashiCorp Vault](https://img.shields.io/badge/HashiCorp_Vault-1e88e5) ![Jira](https://img.shields.io/badge/Jira-1e88e5) ![MCP](https://img.shields.io/badge/MCP-1e88e5) ![CICD](https://img.shields.io/badge/CI/CD-1e88e5) |
+| **Avg. Cost per Agent Session** | ![Cost](https://img.shields.io/badge/%240.19-42a5f5) |
 
 ## 📖 **Table of Contents**
 - 📜 **dblCheck**
