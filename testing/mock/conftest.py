@@ -77,7 +77,7 @@ _transport_mod.open_device_session = AsyncMock()
 _transport_mod.close_device_session = AsyncMock()
 sys.modules["transport"] = _transport_mod
 
-# ── Step 4: Load legacy/INTENT.json as mock intent ────────────────────────────
+# ── Step 4: Load testing/mock/resources/INTENT.json as mock intent ───────────
 _INTENT_JSON = _ROOT / "testing" / "mock" / "resources" / "INTENT.json"
 MOCK_INTENT: dict = json.loads(_INTENT_JSON.read_text())
 
@@ -86,11 +86,11 @@ MOCK_INTENT: dict = json.loads(_INTENT_JSON.read_text())
 
 @pytest.fixture
 def mock_devices() -> dict:
-    """Device inventory from legacy/NETWORK.json."""
+    """Device inventory from testing/mock/resources/NETWORK.json."""
     return dict(MOCK_DEVICES)
 
 
 @pytest.fixture
 def mock_intent() -> dict:
-    """Network intent from legacy/INTENT.json."""
+    """Network intent from testing/mock/resources/INTENT.json."""
     return dict(MOCK_INTENT)
