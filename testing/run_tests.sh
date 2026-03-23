@@ -8,7 +8,7 @@ set -euo pipefail
 # Parse flags
 for arg in "$@"; do
     case "$arg" in
-        --live) NO_LAB=0 ;;
+        --live) export NO_LAB=0 ;;
     esac
 done
 
@@ -43,7 +43,7 @@ run_suite() {
     printf "  %-8s  %-55s  " "$suite_id" "$suite_name"
 
     local output
-    if output=$(cd "$PROJECT_ROOT" && $PYTEST "$suite_file" -v --tb=short -q 2>&1); then
+    if output=$(cd "$PROJECT_ROOT" && $PYTEST "$suite_file" -v --tb=short -q --timeout=60 2>&1); then
         printf "${GREEN}PASS${RESET}\n"
         PASS_COUNT=$((PASS_COUNT + 1))
     else
@@ -91,7 +91,7 @@ run_suite "IT-003" "testing/mock/integration/test_cli_orchestration.py"  "CLI or
 echo ""
 if [[ "${NO_LAB:-1}" == "0" ]]; then
     echo "  ── Live Device Tests ──────────────────────────────────────────"
-    run_suite "LT-001" "testing/live/test_platform_coverage.py" "Platform coverage (6 vendors, real SSH)"
+    run_suite "LT-001" "testing/live/test_platform_coverage.py" "Platform coverage (5 vendors, real SSH)"
 else
     printf "  ${YELLOW}Live tests skipped${RESET} — rerun with --live to include\n"
     SKIP_COUNT=$((SKIP_COUNT + 1))

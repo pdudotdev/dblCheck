@@ -86,7 +86,7 @@ def _build_cli(device: dict, timeout_ops: int | None = None) -> Cli:
     elif SSH_STRICT_HOST_KEY:
         transport = BinOptions(enable_strict_key=True, known_hosts_path=_known_hosts)
     else:
-        transport = None
+        transport = BinOptions(enable_strict_key=False)
 
     return Cli(
         host=device["host"],

@@ -1,6 +1,6 @@
 # ✨ dblCheck
 
-[![Version](https://img.shields.io/badge/ver.-1.2.0-1a1a2e)](https://github.com/pdudotdev/dblCheck/releases/tag/1.2.0)
+[![Version](https://img.shields.io/badge/ver.-1.3.0-1a1a2e)](https://github.com/pdudotdev/dblCheck/releases/tag/1.3.0)
 ![License](https://img.shields.io/badge/license-BSL1.1-1a1a2e)
 [![Last Commit](https://img.shields.io/github/last-commit/pdudotdev/dblCheck?color=1a1a2e)](https://github.com/pdudotdev/dblCheck/commits/main/)
 
@@ -15,7 +15,7 @@
 - 📜 **dblCheck**
   - [🔭 Overview](#-overview)
   - [🍀 Here's a Quick Demo](#-heres-a-quick-demo)
-  - [⭐ What's New in v1.2](#-whats-new-in-v12)
+  - [⭐ What's New in v1.3](#-whats-new-in-v13)
   - [⚒️ Core Tech Stack](#️-core-tech-stack)
   - [📋 Validation Scope](#-validation-scope)
   - [🛠️ Installation & Usage](#️-installation--usage)
@@ -43,7 +43,7 @@ Continuously checks **live network state against design intent** and invokes a C
 - [x] **HashiCorp Vault** - All secrets (device creds, NetBox token, Jira key etc.) stored in Vault
 - [x] **NetBox** - Network inventory and expected state loaded automatically
 - [x] **Jira** - Network state drift and deviations logged to Jira
-- [x] **711 tests** - 21 suites (17 unit + 3 integration + 1 live)
+- [x] **711 tests** - 21 suites (17 unit + 3 integration + 1 live device SSH), CI via GitHub Actions
 
 ▫️ **Supported models:**
 - [x] Haiku 4.5
@@ -63,7 +63,7 @@ Continuously checks **live network state against design intent** and invokes a C
 ## 🍀 Here's a Quick Demo
 - [x] *Demo video coming soon...*
 
-## ⭐ What's New in v1.2
+## ⭐ What's New in v1.3
 - [x] See [**CHANGELOG.md**](CHANGELOG.md)
  
 ## ⚒️ Core Tech Stack

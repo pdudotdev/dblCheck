@@ -62,7 +62,7 @@ PLATFORM_MAP = {
             "redistribution":       "show running-config section redistribute",
             "route_maps":           "show route-map",
             "prefix_lists":         "show ip prefix-list",
-            "policy_based_routing": "show ip policy",
+            "policy_based_routing": "show policy-map type pbr",
             "access_lists":         "show ip access-lists",
         },
         "interfaces": {
@@ -78,14 +78,14 @@ PLATFORM_MAP = {
             "neighbors":  {"default": "show ospf neighbor",  "vrf": "show ospf neighbor instance {vrf}"},
             "database":   {"default": "show ospf database",  "vrf": "show ospf database instance {vrf}"},
             "borders":    {"default": "show ospf route abr", "vrf": "show ospf route abr instance {vrf}"},
-            "config":     "show configuration protocols ospf",
+            "config":     {"default": "show ospf overview",  "vrf": "show ospf overview instance {vrf}"},
             "interfaces": {"default": "show ospf interface", "vrf": "show ospf interface instance {vrf}"},
             "details":    {"default": "show ospf overview",  "vrf": "show ospf overview instance {vrf}"},
         },
         "bgp": {
             "summary":   {"default": "show bgp summary",        "vrf": "show bgp summary instance {vrf}"},
             "table":     {"default": "show route protocol bgp", "vrf": "show route protocol bgp table {vrf}.inet.0"},
-            "config":    "show configuration protocols bgp",
+            "config":    {"default": "show bgp summary",        "vrf": "show bgp summary instance {vrf}"},
             "neighbors": {"default": "show bgp neighbor",       "vrf": "show bgp neighbor instance {vrf}"},
         },
         "routing_table": {
@@ -93,8 +93,8 @@ PLATFORM_MAP = {
         },
         "routing_policies": {
             "redistribution":       "show configuration policy-options",
-            "route_maps":           "show configuration policy-options policy-statement",
-            "prefix_lists":         "show configuration policy-options prefix-list",
+            "route_maps":           "show configuration policy-options",
+            "prefix_lists":         "show configuration policy-options",
             "policy_based_routing": "show configuration routing-options",
             "access_lists":         "show configuration firewall",
         },
@@ -110,16 +110,16 @@ PLATFORM_MAP = {
     "aos": {
         "ospf": {
             "neighbors":  {"default": "show ip ospf neighbors",      "vrf": "show ip ospf neighbors vrf {vrf}"},
-            "database":   {"default": "show ip ospf database",       "vrf": "show ip ospf database vrf {vrf}"},
+            "database":   {"default": "show ip ospf lsdb",       "vrf": "show ip ospf lsdb vrf {vrf}"},
             "borders":    {"default": "show ip ospf border-routers", "vrf": "show ip ospf border-routers vrf {vrf}"},
-            "config":     "show running-config",
+            "config":     {"default": "show ip ospf",                "vrf": "show ip ospf vrf {vrf}"},
             "interfaces": {"default": "show ip ospf interface",      "vrf": "show ip ospf interface vrf {vrf}"},
             "details":    {"default": "show ip ospf",                "vrf": "show ip ospf vrf {vrf}"},
         },
         "bgp": {
             "summary":   {"default": "show bgp ipv4 unicast summary",   "vrf": "show bgp vrf {vrf} ipv4 unicast summary"},
             "table":     {"default": "show bgp ipv4 unicast",           "vrf": "show bgp vrf {vrf} ipv4 unicast"},
-            "config":    "show running-config",
+            "config":    {"default": "show bgp ipv4 unicast",           "vrf": "show bgp vrf {vrf} ipv4 unicast"},
             "neighbors": {"default": "show bgp ipv4 unicast neighbors", "vrf": "show bgp vrf {vrf} ipv4 unicast neighbors"},
         },
         "routing_table": {
@@ -129,8 +129,8 @@ PLATFORM_MAP = {
             "redistribution":       "show running-config",
             "route_maps":           "show route-map",
             "prefix_lists":         "show ip prefix-list",
-            "policy_based_routing": "show running-config",
-            "access_lists":         "show running-config",
+            "policy_based_routing": "show pbr summary",
+            "access_lists":         "show access-list",
         },
         "interfaces": {
             "interface_status": "show interface brief",

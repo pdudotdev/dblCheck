@@ -95,12 +95,28 @@ def classify_result(result) -> tuple[str, str]:
 
     raw = result.get("raw", "")
 
-    if isinstance(raw, str) and "% Invalid input" in raw:
-        return "FAIL", raw.strip()[:200]
+    if isinstance(raw, str):
+        stripped = raw.strip()
 
-    # IOS/EOS "% <msg>" = feature not configured → EMPTY (not a command error)
-    if isinstance(raw, str) and raw.strip().startswith("% "):
-        return "EMPTY", ""
+        # Empty output — device returned nothing meaningful
+        if not stripped:
+            return "EMPTY", ""
+
+        # IOS/EOS: "% Invalid input ..."
+        if "% Invalid input" in stripped:
+            return "FAIL", stripped[:200]
+
+        # AOS-CX: "Invalid input: <keyword>" (no % prefix)
+        if stripped.startswith("Invalid input"):
+            return "FAIL", stripped[:200]
+
+        # JunOS: "error: syntax error, ..." or "error: unknown command"
+        if stripped.startswith("error:"):
+            return "FAIL", stripped[:200]
+
+        # IOS/EOS "% <msg>" = feature not configured → EMPTY (not a command error)
+        if stripped.startswith("% "):
+            return "EMPTY", ""
 
     return "PASS", ""
 

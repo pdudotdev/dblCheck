@@ -1,5 +1,35 @@
 # Changelog
 
+## [1.3.0] — 2026-03-23
+
+### CI Pipeline
+
+- GitHub Actions workflow with 4 parallel jobs: lint (ruff), type-check (pyright), test (pytest), coverage (pytest-cov)
+- Consolidated tool configs into `pyproject.toml` (ruff + pyright)
+- 85% test coverage baseline
+
+### Live Device Test Suite
+
+- 89 live SSH tests across 5 vendors (IOS-XE, EOS, JunOS, AOS-CX, RouterOS) covering every PLATFORM_MAP query per device
+- Automated SSH host key refresh fixture for containerlab restarts (removes stale keys, scans fresh ones before test session)
+- Result classifier detects vendor-specific error patterns: IOS `% Invalid input`, EOS `% <msg>`, JunOS `error:` prefix, AOS-CX `Invalid input:` (no `%` prefix), empty output
+- Markdown coverage report generated per run (`testing/live/platform_coverage_results.md`)
+
+### Platform Map Fixes
+
+- AOS-CX: replaced bare `show running-config` with targeted commands for ospf/config, bgp/config, policy_based_routing, access_lists
+- JunOS: fixed ospf/config, bgp/config, route_maps, prefix_lists commands that caused syntax errors
+
+### Bug Fixes
+
+- Fixed `SSH_STRICT_HOST_KEY=False` not actually disabling strict host key checking (scrapli `BinOptions` defaulted to strict when transport was `None`)
+- Fixed `run_tests.sh` not exporting `NO_LAB` variable to pytest subprocess
+- Fixed test data paths from gitignored `legacy/` to tracked `testing/mock/resources/`
+- Removed duplicate test functions flagged by ruff (F811)
+- Linted codebase with ruff: removed unused imports, fixed import ordering across ~30 files
+
+---
+
 ## [1.2.0] — 2026-03-19
 
 ### Jira Incident Lifecycle
