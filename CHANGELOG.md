@@ -5,6 +5,7 @@
 ### CI Pipeline
 
 - GitHub Actions workflow with 4 parallel jobs: lint (ruff), type-check (pyright), test (pytest), coverage (pytest-cov)
+- Automated GitHub Releases on version tags (`git tag v1.3.0 && git push origin v1.3.0`)
 - Consolidated tool configs into `pyproject.toml` (ruff + pyright)
 - 85% test coverage baseline
 
