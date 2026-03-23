@@ -3,6 +3,7 @@ name: CI
 on:
   push:
     branches: [main]
+    tags: ["v*"]        # also triggers on version tags (e.g. v1.3.0)
   pull_request:
     branches: [main]
 
@@ -57,3 +58,39 @@ jobs:
         run: pip install -r requirements.txt
       - name: Run tests with coverage
         run: pytest testing/mock/ --cov=. --cov-report=term-missing --timeout=30
+
+  # ── Release ──────────────────────────────────────────────────────────────────
+  # Triggered only on version tags (e.g. v1.3.0).
+  # Runs after CI passes, extracts the changelog section, creates a GitHub Release.
+  #
+  # Usage:
+  #   git tag v1.3.0
+  #   git push origin v1.3.0
+  release:
+    name: GitHub Release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [lint, type-check, test, coverage]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Extract version from tag
+        id: version
+        run: echo "tag=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
+
+      - name: Extract changelog for this version
+        id: changelog
+        run: |
+          semver="${{ steps.version.outputs.tag }}"
+          semver="${semver#v}"
+          awk "/^## \[${semver}\]/{found=1; next} /^## \[/{if(found) exit} found" CHANGELOG.md > /tmp/release_notes.md
+          cat /tmp/release_notes.md
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: ${{ steps.version.outputs.tag }}
+          body_path: /tmp/release_notes.md
