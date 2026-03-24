@@ -143,7 +143,7 @@ Option B - API key via Vault.
 
 ▫️ **Step 5 - Register the MCP server:**
 ```
-claude mcp add dblcheck -s user -- /home/<user>/dbl/bin/python server/MCPServer.py
+claude mcp add dblcheck -s user -- /opt/dblcheck/dbl/bin/python server/MCPServer.py
 ```
 
 ## 🦾 Operating Mode
