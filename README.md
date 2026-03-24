@@ -14,7 +14,6 @@
 ## 📖 **Table of Contents**
 - 📜 **dblCheck**
   - [🔭 Overview](#-overview)
-  - [🍀 Here's a Quick Demo](#-heres-a-quick-demo)
   - [⭐ What's New in v1.3](#-whats-new-in-v13)
   - [⚒️ Core Tech Stack](#️-core-tech-stack)
   - [📋 Validation Scope](#-validation-scope)
@@ -59,9 +58,6 @@ Continuously checks **live network state against design intent** and invokes a C
 
 ▫️ **Operational Guardrails:**
 - [x] See [**guardrails.md**](metadata/about/guardrails.md)
-
-## 🍀 Here's a Quick Demo
-- [x] *Demo video coming soon...*
 
 ## ⭐ What's New in v1.3
 - [x] See [**CHANGELOG.md**](CHANGELOG.md)
