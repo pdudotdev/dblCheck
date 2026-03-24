@@ -1,7 +1,7 @@
 # ✨ dblCheck
 
 [![Version](https://img.shields.io/badge/ver.-1.3.0-1a1a2e)](https://github.com/pdudotdev/dblCheck/releases/tag/1.3.0)
-![License](https://img.shields.io/badge/license-GNUv3-1a1a2e)
+![License](https://img.shields.io/badge/license-GPLv3-1a1a2e)
 [![Last Commit](https://img.shields.io/github/last-commit/pdudotdev/dblCheck?color=1a1a2e)](https://github.com/pdudotdev/dblCheck/commits/main/)
 
 | | |
