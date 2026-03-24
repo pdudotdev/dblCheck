@@ -1,7 +1,7 @@
 # ✨ dblCheck
 
 [![Version](https://img.shields.io/badge/ver.-1.3.0-1a1a2e)](https://github.com/pdudotdev/dblCheck/releases/tag/1.3.0)
-![License](https://img.shields.io/badge/license-BSL1.1-1a1a2e)
+![License](https://img.shields.io/badge/license-GNUv3-1a1a2e)
 [![Last Commit](https://img.shields.io/github/last-commit/pdudotdev/dblCheck?color=1a1a2e)](https://github.com/pdudotdev/dblCheck/commits/main/)
 
 | | |
@@ -202,8 +202,7 @@ Shows live validation results and streams AI diagnosis output when failures are 
 You are responsible for defining your own network intent (NetBox config contexts), building your test environment, and meeting the necessary conditions (Python 3.11+, Claude CLI, HashiCorp Vault, etc.).
 
 ## 📜 License
-Licensed under the [**Business Source License 1.1**](LICENSE).
-Source code is available for research, educational, and non-commercial use. Commercial use, SaaS deployment, enterprise integration, or paid services require a commercial license.
+Licensed under the [**GNU General Public License v3.0**](LICENSE).
 
 ## 📧 Collaborations
 Interested in collaborating?

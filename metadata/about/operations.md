@@ -37,15 +37,81 @@
   └──────────────────────┬──────────────────────┘
                          │
   ┌──────────────────────┴──────────────────────┐
-  │  3 · VALIDATE                               │
+  │  3 · VALIDATE  (the core pipeline)          │
   ├─────────────────────────────────────────────┤
-  │  core/checker.py  ·  transport/ssh.py       │
   │                                             │
-  │  SSH into every device → run show commands  │
-  │  → compare live state to design intent      │
+  │  Four stages, executed in order:            │
+  │                                             │
+  │  ┌─────────────────────────────────────┐    │
+  │  │  3a · DERIVE ASSERTIONS             │    │
+  │  │  validation/derivation.py           │    │
+  │  │                                     │    │
+  │  │  Reads the intent dict and builds   │    │
+  │  │  a checklist of Assertion objects   │    │
+  │  │  — one per thing that must be true  │    │
+  │  │  (e.g. "C1C GigabitEthernet2       │    │
+  │  │  should be up/up").                 │    │
+  │  │                                     │    │
+  │  │  Pure logic — no devices contacted. │    │
+  │  │  Covers: interfaces, OSPF, BGP,    │    │
+  │  │  EIGRP adjacencies, router-id,     │    │
+  │  │  area types, default-originate.     │    │
+  │  └──────────────┬──────────────────────┘    │
+  │                 │                            │
+  │  ┌──────────────┴──────────────────────┐    │
+  │  │  3b · COLLECT STATE                 │    │
+  │  │  validation/collector.py            │    │
+  │  │  transport/ssh.py · transport/      │    │
+  │  │  platforms/platform_map.py          │    │
+  │  │                                     │    │
+  │  │  Looks at which assertions exist    │    │
+  │  │  to decide what to query per        │    │
+  │  │  device (only fetches what's        │    │
+  │  │  needed). SSHs into all devices     │    │
+  │  │  concurrently (max 5 parallel).     │    │
+  │  │                                     │    │
+  │  │  platform_map.py translates         │    │
+  │  │  (vendor, protocol, query) into     │    │
+  │  │  the correct CLI command for each   │    │
+  │  │  of the 6 supported vendors:        │    │
+  │  │  IOS, EOS, JunOS, AOS-CX,          │    │
+  │  │  RouterOS, VyOS.                    │    │
+  │  └──────────────┬──────────────────────┘    │
+  │                 │                            │
+  │  ┌──────────────┴──────────────────────┐    │
+  │  │  3c · NORMALIZE                     │    │
+  │  │  validation/normalizers.py          │    │
+  │  │                                     │    │
+  │  │  Each vendor's CLI output looks     │    │
+  │  │  different. Normalizers parse the   │    │
+  │  │  raw text into a common structure   │    │
+  │  │  the evaluator can compare.         │    │
+  │  │                                     │    │
+  │  │  e.g. IOS "show ip ospf neighbor"   │    │
+  │  │  and JunOS "show ospf neighbor"     │    │
+  │  │  both become:                       │    │
+  │  │  [{"neighbor_id", "state",          │    │
+  │  │    "interface", "area"}]            │    │
+  │  └──────────────┬──────────────────────┘    │
+  │                 │                            │
+  │  ┌──────────────┴──────────────────────┐    │
+  │  │  3d · EVALUATE                      │    │
+  │  │  validation/evaluator.py            │    │
+  │  │                                     │    │
+  │  │  Walks each Assertion, looks up     │    │
+  │  │  the matching value in collected    │    │
+  │  │  DeviceState, returns PASS / FAIL   │    │
+  │  │  / ERROR per assertion.             │    │
+  │  │                                     │    │
+  │  │  Handles interface name matching    │    │
+  │  │  across vendors (e.g. "Gi2" ==     │    │
+  │  │  "GigabitEthernet2").              │    │
+  │  └──────────────┬──────────────────────┘    │
+  │                 │                            │
+  │  Results formatted by validation/report.py  │
   └──────────┬──────────────────────┬───────────┘
              │                      │
-     [ ✓  No drift ]       [ ⚠  State drift ]
+     [ No drift ]          [ State drift ]
              │                      │
   ┌──────────┴──────────┐           │
   │  All assertions OK. │           │
@@ -115,6 +181,40 @@
 
 ---
 
+## MCP Tools — the AI diagnosis read path
+
+When Claude diagnoses failures (step 5), it queries devices through a
+separate read-only MCP server (`server/MCPServer.py`), not through
+the validation pipeline.
+
+```
+  Claude CLI subprocess
+       │
+       │  MCP tool call (e.g. get_ospf device=C1C query=neighbors)
+       ▼
+  server/MCPServer.py         ← FastMCP, 8 registered tools
+       │
+  tools/protocol.py           ← get_ospf, get_bgp, get_eigrp
+  tools/routing.py            ← get_routing, get_routing_policies
+  tools/operational.py        ← get_interfaces, run_show
+  tools/state.py              ← get_intent
+       │
+  input_models/models.py      ← Pydantic validation + injection prevention
+       │
+  platforms/platform_map.py   ← (vendor, protocol, query) → CLI command
+       │
+  transport/ → transport/ssh.py  ← Scrapli SSH, session cache, retry
+       │
+       ▼
+  Raw CLI output returned to Claude
+```
+
+The tools share the same platform_map and transport layer as the
+validation pipeline, but they do not use the normalizers or evaluator.
+Claude gets raw device output and interprets it directly.
+
+---
+
 ## Files at a Glance
 
 | Step | Key Files |
@@ -122,8 +222,12 @@
 | **Daemon** | `deploy/dblcheck_daemon.py` |
 | **1 · Credentials** | `core/vault.py` · `core/settings.py` |
 | **2 · Inventory & Intent** | `core/inventory.py` · `core/netbox.py` |
-| **3 · Validate** | `core/checker.py` · `transport/ssh.py` |
+| **3a · Derive assertions** | `validation/derivation.py` · `validation/assertions.py` |
+| **3b · Collect state** | `validation/collector.py` · `transport/ssh.py` · `platforms/platform_map.py` |
+| **3c · Normalize** | `validation/normalizers.py` |
+| **3d · Evaluate** | `validation/evaluator.py` · `validation/report.py` |
 | **4 · Compare** | `cli/dblcheck.py` · `data/incident.json` |
-| **5 · Diagnose** | `cli/dblcheck.py` · `core/vault.py` |
+| **5 · Diagnose** | `cli/dblcheck.py` · `server/MCPServer.py` · `tools/` |
 | **6 · Jira Ticket** | `core/jira_client.py` · `data/incident.json` |
 | **7 · Dashboard** | `data/dashboard_state.json` · `dashboard/ws_bridge.py` |
+| **Input validation** | `input_models/models.py` |
