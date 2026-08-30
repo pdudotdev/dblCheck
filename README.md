@@ -44,10 +44,8 @@ Continuously checks **live network state against design intent** and invokes a C
 - [x] **Jira** - Network state drift and deviations logged to Jira
 - [x] **711 tests** - 21 suites (17 unit + 3 integration + 1 live device SSH), CI via GitHub Actions
 
-▫️ **Supported models:**
-- [x] Haiku 4.5
-- [x] Sonnet 4.6
-- [x] Opus 4.6 (default, best reasoning)
+▫️ **Recommended models:**
+- [x] Opus 4.6+ (1M)
 
 ▫️ **Operational Costs:**
 - [x] Periodic network state validation: programmatic, no cost
@@ -80,7 +78,6 @@ Continuously checks **live network state against design intent** and invokes a C
 |----------|---------------|
 | **OSPF** | Neighbor state (FULL), area config, process config |
 | **EIGRP** | Neighbor state, interfaces, topology |
-| **BGP** | Peer state (Established), prefix counts |
 | **Interfaces** | Up/down state, expected operational status |
 
 ## 🛠️ Installation & Usage
@@ -190,6 +187,7 @@ Shows live validation results and streams AI diagnosis output when failures are 
 - [x] Network inventory and state in **NetBox**
 
 ## ⬆️ Planned Upgrades
+- [ ] Full refresh late 2026
 - [ ] New protocols supported
 
 ## ♻️ Repository Lifecycle
@@ -205,8 +203,6 @@ You are responsible for defining your own network intent (NetBox config contexts
 Licensed under the [**GNU General Public License v3.0**](LICENSE).
 
 ## 📧 Collaborations
-Interested in collaborating?
-- **Email:**
-  - Reach out at [**hello@ainoc.dev**](mailto:hello@ainoc.dev)
+Wanna say hello?
 - **LinkedIn:**
   - Let's discuss via [**LinkedIn**](https://www.linkedin.com/in/tmihaicatalin/)
