@@ -203,6 +203,4 @@ You are responsible for defining your own network intent (NetBox config contexts
 Licensed under the [**GNU General Public License v3.0**](LICENSE).
 
 ## 📧 Collaborations
-Wanna say hello?
-- **LinkedIn:**
-  - Let's discuss via [**LinkedIn**](https://www.linkedin.com/in/tmihaicatalin/)
+Wanna say hello? Send me a DM at [**LinkedIn**](https://www.linkedin.com/in/tmihaicatalin/)
