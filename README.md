@@ -24,7 +24,7 @@
   - [♻️ Repository Lifecycle](#️-repository-lifecycle)
   - [📄 Disclaimer](#-disclaimer)
   - [📜 License](#-license)
-  - [📧 Collaborations](#-collaborations)
+  - [📧 Hi](#-hi)
 
 ## 🔭 Overview
 AI-assisted **network intent validation framework** for multi-vendor environments. 
